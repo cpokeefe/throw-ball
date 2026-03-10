@@ -4,9 +4,56 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Throw Ball Web</title>
+    <style>
+      :root {
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+      }
+
+      .page {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: flex-start;
+        padding: 24px;
+      }
+
+      #app {
+        display: inline-block;
+      }
+
+      .bio {
+        max-width: 320px;
+        line-height: 1.5;
+      }
+
+      .bio h1 {
+        margin: 0 0 12px;
+        font-size: 1.4rem;
+      }
+
+      .bio p {
+        margin: 0;
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <main class="page">
+      <div id="app"></div>
+      <aside class="bio">
+        <h1>CHARLIE O'KEEFE</h1>
+        <p>
+          I am Charlie O'Keefe, a game developer and computer science student
+          who enjoys building playful systems, experimenting with procedural
+          worlds, and turning class projects into polished web experiences.
+        </p>
+      </aside>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
