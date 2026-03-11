@@ -1,15 +1,34 @@
 import Phaser from "phaser";
-import { GameState, Tile } from "../../core/types";
+import { Direction, GameState, PlayerState, Tile } from "../../core/types";
 
 const TILE_SIZE = 16;
 
 export class PhaserRenderer {
   private graphics: Phaser.GameObjects.Graphics;
   private worldHeight: number;
+  private playerGlyphs: Record<1 | 2, Phaser.GameObjects.Text>;
 
   constructor(scene: Phaser.Scene, worldHeight: number) {
     this.graphics = scene.add.graphics();
     this.worldHeight = worldHeight;
+    this.playerGlyphs = {
+      1: scene.add
+        .text(0, 0, ">", {
+          fontFamily: "monospace",
+          fontSize: "14px",
+          color: "#6aff6a",
+        })
+        .setOrigin(0.5)
+        .setDepth(5),
+      2: scene.add
+        .text(0, 0, "<", {
+          fontFamily: "monospace",
+          fontSize: "14px",
+          color: "#e07bff",
+        })
+        .setOrigin(0.5)
+        .setDepth(5),
+    };
   }
 
   draw(state: GameState): void {
@@ -25,12 +44,8 @@ export class PhaserRenderer {
     if (holder === null) {
       this.drawBall(state.ball.position.x, state.ball.position.y);
     }
-    this.drawPlayer(1, state.players[1].position.x, state.players[1].position.y);
-    this.drawPlayer(2, state.players[2].position.x, state.players[2].position.y);
-    if (holder !== null) {
-      const exhausted = state.players[holder].stepsLeft <= 0;
-      this.drawHeldBall(state.players[holder].position.x, state.players[holder].position.y, exhausted);
-    }
+    this.drawPlayer(state.players[1]);
+    this.drawPlayer(state.players[2]);
   }
 
   private drawTile(x: number, y: number, tile: Tile): void {
@@ -69,11 +84,17 @@ export class PhaserRenderer {
     }
   }
 
-  private drawPlayer(id: 1 | 2, x: number, y: number): void {
-    const px = x * TILE_SIZE + TILE_SIZE / 2;
-    const py = (this.worldHeight - 1 - y) * TILE_SIZE + TILE_SIZE / 2;
-    this.graphics.fillStyle(id === 1 ? 0x6aff6a : 0xe07bff, 1);
-    this.graphics.fillCircle(px, py, TILE_SIZE * 0.38);
+  private drawPlayer(player: PlayerState): void {
+    const px = player.position.x * TILE_SIZE;
+    const py = (this.worldHeight - 1 - player.position.y) * TILE_SIZE;
+    if (player.hasBall) {
+      this.graphics.fillStyle(player.stepsLeft <= 0 ? 0xff0000 : 0xffff00, 0.35);
+      this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+    }
+
+    const glyph = this.playerGlyphs[player.id];
+    glyph.setText(this.iconForDirection(player.direction));
+    glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2);
   }
 
   private drawBall(x: number, y: number): void {
@@ -83,10 +104,16 @@ export class PhaserRenderer {
     this.graphics.fillCircle(px, py, TILE_SIZE * 0.22);
   }
 
-  private drawHeldBall(x: number, y: number, exhausted: boolean): void {
-    const px = x * TILE_SIZE + TILE_SIZE * 0.72;
-    const py = (this.worldHeight - 1 - y) * TILE_SIZE + TILE_SIZE * 0.28;
-    this.graphics.fillStyle(exhausted ? 0xff3b30 : 0xf6d32d, 1);
-    this.graphics.fillCircle(px, py, TILE_SIZE * 0.14);
+  private iconForDirection(direction: Direction): string {
+    if (direction === "N") {
+      return "ʌ";
+    }
+    if (direction === "E") {
+      return ">";
+    }
+    if (direction === "S") {
+      return "v";
+    }
+    return "<";
   }
 }
