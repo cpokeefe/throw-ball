@@ -246,7 +246,7 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
 
 function toggleFly(state: GameState, playerId: 1 | 2): GameState {
   const player = state.players[playerId];
-  if (player.isFlying) {
+  if (player.isFlying || player.hasBall) {
     return state;
   }
   return {

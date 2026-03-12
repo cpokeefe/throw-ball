@@ -202,10 +202,10 @@ export class PhaserRenderer {
 
   private iconYOffset(direction: Direction): number {
     if (direction === "N" || direction === "S") {
-      return -2;
+      return 0;
     }
     if (direction === "E" || direction === "W") {
-      return -1;
+      return 0;
     }
     return 0;
   }
