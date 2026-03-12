@@ -205,7 +205,7 @@ export class PhaserRenderer {
       return 0;
     }
     if (direction === "E" || direction === "W") {
-      return 10;
+      return 3;
     }
     return 0;
   }
