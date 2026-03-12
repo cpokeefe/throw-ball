@@ -2,20 +2,28 @@ import Phaser from "phaser";
 import { Direction, GameState, PlayerState, Tile } from "../../core/types";
 
 const TILE_SIZE = 16;
+const PLAYER_ICON_FONT_SIZE = "18px";
+const GOAL_GLYPH = "▒";
+const GOAL_FONT_SIZE = "16px";
 
 export class PhaserRenderer {
+  private scene: Phaser.Scene;
   private graphics: Phaser.GameObjects.Graphics;
   private worldHeight: number;
   private playerGlyphs: Record<1 | 2, Phaser.GameObjects.Text>;
+  private goalGlyphs: Phaser.GameObjects.Text[];
+  private static readonly FLY_ARMED_BLINK_MS = 120;
 
   constructor(scene: Phaser.Scene, worldHeight: number) {
+    this.scene = scene;
     this.graphics = scene.add.graphics();
     this.worldHeight = worldHeight;
+    this.goalGlyphs = [];
     this.playerGlyphs = {
       1: scene.add
         .text(0, 0, ">", {
           fontFamily: "monospace",
-          fontSize: "14px",
+          fontSize: PLAYER_ICON_FONT_SIZE,
           color: "#6aff6a",
         })
         .setOrigin(0.5)
@@ -23,7 +31,7 @@ export class PhaserRenderer {
       2: scene.add
         .text(0, 0, "<", {
           fontFamily: "monospace",
-          fontSize: "14px",
+          fontSize: PLAYER_ICON_FONT_SIZE,
           color: "#e07bff",
         })
         .setOrigin(0.5)
@@ -31,60 +39,100 @@ export class PhaserRenderer {
     };
   }
 
-  draw(state: GameState): void {
+  draw(state: GameState, elapsedMs = 0): void {
     this.graphics.clear();
+    let goalGlyphIndex = 0;
+    const p1 = state.players[1].position;
+    const p2 = state.players[2].position;
+    const blinkOn = Math.floor(elapsedMs / PhaserRenderer.FLY_ARMED_BLINK_MS) % 2 === 0;
 
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
-        this.drawTile(x, y, state.map.tiles[x][y]);
+        const hasPlayer = (p1.x === x && p1.y === y) || (p2.x === x && p2.y === y);
+        goalGlyphIndex = this.drawTile(state, x, y, state.map.tiles[x][y], hasPlayer, goalGlyphIndex);
       }
     }
+    this.hideUnusedGoalGlyphs(goalGlyphIndex);
 
     const holder = state.players[1].hasBall ? 1 : state.players[2].hasBall ? 2 : null;
     if (holder === null) {
       this.drawBall(state.ball.position.x, state.ball.position.y);
     }
-    this.drawPlayer(state.players[1]);
-    this.drawPlayer(state.players[2]);
+    this.drawPlayer(state.players[1], blinkOn);
+    this.drawPlayer(state.players[2], blinkOn);
   }
 
-  private drawTile(x: number, y: number, tile: Tile): void {
+  private drawTile(state: GameState, x: number, y: number, tile: Tile, hasPlayer: boolean, goalGlyphIndex: number): number {
     const px = x * TILE_SIZE;
     const py = (this.worldHeight - 1 - y) * TILE_SIZE;
 
     switch (tile) {
       case Tile.Wall:
-        this.graphics.fillStyle(0x1c2431, 1);
+        if (this.isOutsideWallAdjacentToFloor(state, x, y)) {
+          this.drawWallTile(px, py);
+        } else {
+          this.graphics.fillStyle(0x000000, 1);
+          this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        }
         break;
       case Tile.Floor:
-        this.graphics.fillStyle(0x2f3645, 1);
+        this.drawFloorTile(px, py, hasPlayer);
         break;
       case Tile.Goal1:
-        this.graphics.fillStyle(0x31c44f, 1);
-        break;
+        this.drawGoalTile(px, py, "#bb4dff", goalGlyphIndex);
+        return goalGlyphIndex + 1;
       case Tile.Goal2:
-        this.graphics.fillStyle(0xbb4dff, 1);
-        break;
+        this.drawGoalTile(px, py, "#31c44f", goalGlyphIndex);
+        return goalGlyphIndex + 1;
       default:
         this.graphics.fillStyle(0x000000, 1);
+        this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         break;
     }
+    return goalGlyphIndex;
+  }
 
+  private drawFloorTile(px: number, py: number, hasPlayer: boolean): void {
+    // Tileset.FLOOR: foreground (128,192,128) on black.
+    this.graphics.fillStyle(0x000000, 1);
     this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-
-    if (tile === Tile.Goal1 || tile === Tile.Goal2) {
-      this.graphics.lineStyle(2, 0xffffff, 0.95);
-      this.graphics.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-
-      this.graphics.lineStyle(2, 0x111111, 0.9);
-      this.graphics.beginPath();
-      this.graphics.moveTo(px + 3, py + TILE_SIZE - 4);
-      this.graphics.lineTo(px + TILE_SIZE - 4, py + 3);
-      this.graphics.strokePath();
+    if (!hasPlayer) {
+      this.graphics.fillStyle(0x80c080, 1);
+      this.graphics.fillCircle(px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE * 0.11);
     }
   }
 
-  private drawPlayer(player: PlayerState): void {
+  private drawWallTile(px: number, py: number): void {
+    // Tileset.WALL: foreground (60,100,140) on dark gray.
+    this.graphics.fillStyle(0x404040, 1);
+    this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+    this.graphics.fillStyle(0x3c648c, 1);
+    // Draw an "H" glyph for floor-adjacent border walls.
+    this.graphics.fillRect(px + 3, py + 2, 2, TILE_SIZE - 4);
+    this.graphics.fillRect(px + TILE_SIZE - 5, py + 2, 2, TILE_SIZE - 4);
+    this.graphics.fillRect(px + 3, py + Math.floor(TILE_SIZE / 2) - 1, TILE_SIZE - 6, 2);
+  }
+
+  private isOutsideWallAdjacentToFloor(state: GameState, x: number, y: number): boolean {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        if (dx === 0 && dy === 0) {
+          continue;
+        }
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= state.map.width || ny >= state.map.height) {
+          continue;
+        }
+        if (state.map.tiles[nx][ny] === Tile.Floor) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private drawPlayer(player: PlayerState, blinkOn: boolean): void {
     const px = player.position.x * TILE_SIZE;
     const py = (this.worldHeight - 1 - player.position.y) * TILE_SIZE;
     if (player.hasBall) {
@@ -94,7 +142,8 @@ export class PhaserRenderer {
 
     const glyph = this.playerGlyphs[player.id];
     glyph.setText(this.iconForDirection(player.direction));
-    glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2);
+    glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + this.iconYOffset(player.direction));
+    glyph.setVisible(!player.flyArmed || blinkOn);
   }
 
   private drawBall(x: number, y: number): void {
@@ -102,6 +151,40 @@ export class PhaserRenderer {
     const py = (this.worldHeight - 1 - y) * TILE_SIZE + TILE_SIZE / 2;
     this.graphics.fillStyle(0xf6d32d, 1);
     this.graphics.fillCircle(px, py, TILE_SIZE * 0.22);
+  }
+
+  private drawGoalTile(px: number, py: number, color: string, index: number): void {
+    this.graphics.fillStyle(0x000000, 1);
+    this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+    const glyph = this.getGoalGlyph(index);
+    glyph.setText(GOAL_GLYPH);
+    glyph.setColor(color);
+    glyph.setBackgroundColor("#000000");
+    glyph.setPosition(px, py - 1);
+    glyph.setVisible(true);
+  }
+
+  private getGoalGlyph(index: number): Phaser.GameObjects.Text {
+    if (!this.goalGlyphs[index]) {
+      this.goalGlyphs[index] = this.scene.add
+        .text(0, 0, GOAL_GLYPH, {
+          fontFamily: "monospace",
+          fontSize: GOAL_FONT_SIZE,
+          color: "#ffffff",
+          backgroundColor: "#000000",
+        })
+        .setOrigin(0)
+        .setDepth(2)
+        .setVisible(false);
+    }
+    return this.goalGlyphs[index];
+  }
+
+  private hideUnusedGoalGlyphs(used: number): void {
+    for (let i = used; i < this.goalGlyphs.length; i += 1) {
+      this.goalGlyphs[i].setVisible(false);
+    }
   }
 
   private iconForDirection(direction: Direction): string {
@@ -115,5 +198,15 @@ export class PhaserRenderer {
       return "v";
     }
     return "<";
+  }
+
+  private iconYOffset(direction: Direction): number {
+    if (direction === "N" || direction === "S") {
+      return -2;
+    }
+    if (direction === "E" || direction === "W") {
+      return -1;
+    }
+    return 0;
   }
 }

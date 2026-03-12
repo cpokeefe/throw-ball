@@ -374,8 +374,9 @@ function applySingleStepMovement(
     nextX < state.map.width &&
     nextY >= 0 &&
     nextY < state.map.height &&
-    state.map.tiles[nextX][nextY] !== Tile.Wall &&
-    !sameCoord(other.position, { x: nextX, y: nextY });
+    state.map.tiles[nextX][nextY] === Tile.Floor &&
+    !sameCoord(other.position, { x: nextX, y: nextY }) &&
+    !sameCoord(state.ball.position, { x: nextX, y: nextY });
 
   const canSpendMovement = !player.hasBall || player.stepsLeft > 0;
   const moved = canMove && canSpendMovement;

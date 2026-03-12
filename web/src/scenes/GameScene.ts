@@ -6,7 +6,7 @@ import { GameState } from "../core/types";
 import { update } from "../core/update";
 
 export class GameScene extends Phaser.Scene {
-  private static readonly FLY_STEP_MS = 10;
+  private static readonly FLY_STEP_MS = 6;
   private static readonly BALL_STEP_MS = 3;
   private state!: GameState;
   private keyboard!: KeyboardAdapter;
@@ -58,10 +58,13 @@ export class GameScene extends Phaser.Scene {
       next = update(next, command);
     }
 
+    const hasArmedFlyPlayer = next.players[1].flyArmed || next.players[2].flyArmed;
     if (next !== this.state) {
       this.state = next;
-      this.tileRenderer.draw(this.state);
+      this.tileRenderer.draw(this.state, _time);
       this.refreshHud();
+    } else if (hasArmedFlyPlayer) {
+      this.tileRenderer.draw(this.state, _time);
     }
   }
 

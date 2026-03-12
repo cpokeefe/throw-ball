@@ -85,9 +85,10 @@ function placeGoalOnRoomEdge(
   width: number,
   height: number
 ): void {
-  const goalX = edge === "left" ? room.x : room.x + room.w - 1;
-  const behindX = edge === "left" ? goalX - 1 : goalX + 1;
-  const interiorX = edge === "left" ? goalX + 1 : goalX - 1;
+  // Goals should live on the outer border wall, not inside rooms.
+  const goalX = edge === "left" ? 0 : width - 1;
+  const interiorX = edge === "left" ? 1 : width - 2;
+  const roomBoundaryX = edge === "left" ? room.x : room.x + room.w - 1;
 
   const centerY = room.y + Math.floor(room.h / 2);
   const startY = Math.max(room.y, Math.min(centerY - 1, room.y + room.h - 3));
@@ -97,13 +98,18 @@ function placeGoalOnRoomEdge(
     }
     tiles[goalX][y] = goalTile;
 
-    // Ensure the side facing into the room is playable floor.
+    // Ensure the side facing into the map is playable floor.
     if (isInside(interiorX, y, width, height)) {
       tiles[interiorX][y] = Tile.Floor;
     }
-    // Ensure the back side is solid so goal acts like a scoring wall.
-    if (isInside(behindX, y, width, height)) {
-      tiles[behindX][y] = Tile.Wall;
+
+    // Carve a short lane from the extreme room to the border goal.
+    const fromX = Math.min(interiorX, roomBoundaryX);
+    const toX = Math.max(interiorX, roomBoundaryX);
+    for (let x = fromX; x <= toX; x += 1) {
+      if (isInside(x, y, width, height)) {
+        tiles[x][y] = Tile.Floor;
+      }
     }
   }
 }
