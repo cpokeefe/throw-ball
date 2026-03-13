@@ -13,6 +13,8 @@ const BASS_TRACK_SOURCES = [
   encodeURI(`/@fs${BASS_TRACK_ABSOLUTE_PATH}`),
 ];
 let bassTrack: HTMLAudioElement | null = null;
+let musicMuted = false;
+let game: Phaser.Game | null = null;
 
 const startLoopingBassTrack = (): void => {
   let sourceIndex = 0;
@@ -21,6 +23,7 @@ const startLoopingBassTrack = (): void => {
   track.loop = true;
   track.preload = "auto";
   track.crossOrigin = "anonymous";
+  track.muted = musicMuted;
 
   track.addEventListener("error", () => {
     if (sourceIndex >= BASS_TRACK_SOURCES.length - 1) {
@@ -79,19 +82,21 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, GameScene],
 };
 
-startLoopingBassTrack();
-
-const game = new Phaser.Game(config);
+const titleScreen = document.getElementById("title-screen");
+const startGameButton = document.getElementById("start-game");
+const gameControls = document.getElementById("game-controls");
 const hudToggle = document.getElementById("hud-toggle");
 const musicToggle = document.getElementById("music-toggle");
 let hudVisible = false;
-let musicMuted = false;
 
 const syncHudVisibility = (): void => {
-  game.registry.set("hudVisible", hudVisible);
+  if (game !== null) {
+    game.registry.set("hudVisible", hudVisible);
+  }
+
   if (hudToggle instanceof HTMLButtonElement) {
     hudToggle.textContent = hudVisible ? "Hide HUD" : "Show HUD";
-    hudToggle.setAttribute("aria-pressed", String(!hudVisible));
+    hudToggle.setAttribute("aria-pressed", String(hudVisible));
   }
 };
 
@@ -106,8 +111,30 @@ const syncMusicMuted = (): void => {
   }
 };
 
+const startGame = (): void => {
+  if (game !== null) {
+    return;
+  }
+
+  game = new Phaser.Game(config);
+  startLoopingBassTrack();
+  syncHudVisibility();
+  syncMusicMuted();
+
+  if (titleScreen !== null) {
+    titleScreen.classList.add("hidden");
+  }
+  if (gameControls !== null) {
+    gameControls.classList.remove("hidden");
+  }
+};
+
 syncHudVisibility();
 syncMusicMuted();
+
+if (startGameButton instanceof HTMLButtonElement) {
+  startGameButton.addEventListener("click", startGame);
+}
 
 if (hudToggle instanceof HTMLButtonElement) {
   hudToggle.addEventListener("click", () => {

@@ -46,6 +46,10 @@
         margin-top: 12px;
       }
 
+      .hidden {
+        display: none !important;
+      }
+
       .control-button {
         border: 1px solid #222222;
         background: #f4f4f4;
@@ -62,6 +66,37 @@
 
       #app {
         display: inline-block;
+      }
+
+      .title-screen {
+        width: 100%;
+        max-width: 1280px;
+        min-height: 480px;
+        border: 1px solid #222222;
+        border-radius: 8px;
+        background: linear-gradient(160deg, #0d0f12 0%, #171b21 100%);
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .play-button {
+        width: 82px;
+        height: 82px;
+        border-radius: 50%;
+        border: 3.5px solid #ffffff;
+        background: #111821;
+        color: #ffffff;
+        font-size: 2.4rem;
+        line-height: 1;
+        display: grid;
+        place-items: center;
+      }
+
+      .play-button:hover {
+        background: #223041;
       }
 
       @media (max-width: 860px) {
@@ -82,8 +117,13 @@
           My ultimate goal is to help other people.
         </p>
       </section>
+      <section id="title-screen" class="title-screen">
+        <button id="start-game" class="control-button play-button" type="button" aria-label="Start game">
+          &#9654;
+        </button>
+      </section>
       <div id="app"></div>
-      <section class="controls">
+      <section id="game-controls" class="controls hidden">
         <button id="hud-toggle" class="control-button" type="button">Show HUD</button>
         <button id="music-toggle" class="control-button" type="button">Mute Music</button>
       </section>
