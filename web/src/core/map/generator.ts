@@ -1,63 +1,215 @@
 import { createRng } from "../random";
 import { Coordinate, GameMap, Tile } from "../types";
 
-type Room = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
-type CardinalDirection = "north" | "south" | "east" | "west";
-
 const DEFAULT_WIDTH = 80;
 const DEFAULT_HEIGHT = 30;
-const MIN_HALLWAYS_PER_ROOM = 2;
+const GRID_SIZE = 4;
+const ROOMS_MAX_NUMBER = 15;
+const AVERAGE_ROOM_WIDTH = 4;
+const AVERAGE_ROOM_HEIGHT = 4;
+const GRID_BUFFER = 3 * GRID_SIZE;
+const PERIMETER_BUFFER = 1 * GRID_SIZE;
+const INFO_SPACE = 2;
+
+type HallwayDirection = "NORTH" | "EAST" | "SOUTH" | "WEST";
+
+const DIRECTION_STEP: Record<HallwayDirection, { dx: number; dy: number }> = {
+  NORTH: { dx: 0, dy: 1 },
+  EAST: { dx: 1, dy: 0 },
+  SOUTH: { dx: 0, dy: -1 },
+  WEST: { dx: -1, dy: 0 },
+};
 
 export function generateMap(seed: number, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT): GameMap {
   const rng = createRng(seed);
   const tiles: Tile[][] = Array.from({ length: width }, () => Array.from({ length: height }, () => Tile.Wall));
-  const rooms: Room[] = [];
-  const roomTarget = calculateRoomTarget(rng, width, height);
-  const maxPlacementAttempts = roomTarget * 24;
-  let attempts = 0;
+  const rooms: Coordinate[] = [];
 
-  while (rooms.length < roomTarget && attempts < maxPlacementAttempts) {
-    const room = randomRoom(rng, width, height);
-    if (!overlapsExisting(room, rooms)) {
-      rooms.push(room);
-      carveRoom(room, tiles);
+  assignUniformRooms(rng, width, height, rooms);
+  generateRooms(rng, tiles, rooms, width, height);
+
+  for (let i = 0; i < rooms.length - 1; i += 1) {
+    generateHallway(rng, tiles, rooms[i], rooms[i + 1], false, width, height);
+  }
+
+  for (let i = 0; i < rooms.length; i += 1) {
+    const room = rooms[i];
+    if (room.x < 15 || room.x > width - 15) {
+      const otherRoom = rng.int(0, rooms.length);
+      generateHallway(rng, tiles, room, rooms[otherRoom], true, width, height);
     }
-    attempts += 1;
   }
 
-  if (rooms.length === 0) {
-    const fallbackWidth = Math.max(4, Math.min(10, width - 2));
-    const fallbackHeight = Math.max(4, Math.min(8, height - 2));
-    const fallback = {
-      x: Math.max(1, Math.floor((width - fallbackWidth) / 2)),
-      y: Math.max(1, Math.floor((height - fallbackHeight) / 2)),
-      w: fallbackWidth,
-      h: fallbackHeight,
-    };
-    rooms.push(fallback);
-    carveRoom(fallback, tiles);
-  }
-
-  const centers = rooms.map(centerOf);
-  connectRoomsWithMinimumHallways(tiles, centers);
-
+  generatePerimeter(tiles, width, height);
   placeGoalsInExtremeRooms(tiles, rooms, width, height);
 
   return {
     width,
     height,
     tiles,
-    rooms: centers,
+    rooms,
   };
 }
 
-function placeGoalsInExtremeRooms(tiles: Tile[][], rooms: Room[], width: number, height: number): void {
+function assignUniformRooms(
+  rng: ReturnType<typeof createRng>,
+  width: number,
+  height: number,
+  rooms: Coordinate[]
+): void {
+  const numberOfRooms = Math.floor(gaussianBounded(rng, 0.8, 0.2, 0.7, 1) * ROOMS_MAX_NUMBER);
+
+  for (let i = 0; i < numberOfRooms; i += 1) {
+    let assigned = false;
+    let runTimeBound = 10000;
+    while (!assigned && runTimeBound > 0) {
+      const x = rng.int(PERIMETER_BUFFER, width - PERIMETER_BUFFER);
+      const y = rng.int(PERIMETER_BUFFER, height - PERIMETER_BUFFER);
+      if (!adjacentRoom(rooms, x, y, GRID_BUFFER)) {
+        rooms.push({ x, y });
+        assigned = true;
+      }
+      runTimeBound -= 1;
+    }
+  }
+}
+
+function adjacentRoom(rooms: Coordinate[], xGrid: number, yGrid: number, gridBuffer: number): boolean {
+  for (const room of rooms) {
+    if (room.x >= xGrid - gridBuffer && room.x <= xGrid + gridBuffer) {
+      if (room.y >= yGrid - gridBuffer && room.y <= yGrid + gridBuffer) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function generateRooms(
+  rng: ReturnType<typeof createRng>,
+  tiles: Tile[][],
+  rooms: Coordinate[],
+  width: number,
+  height: number
+): void {
+  for (const room of rooms) {
+    const roomWidth = Math.floor(gaussianBounded(rng, AVERAGE_ROOM_WIDTH, 1, 2, 8));
+    const roomHeight = Math.floor(gaussianBounded(rng, AVERAGE_ROOM_HEIGHT, 1, 2, 8));
+    for (let x = room.x - roomWidth; x < room.x + roomWidth; x += 1) {
+      for (let y = room.y - roomHeight; y < room.y + roomHeight; y += 1) {
+        if (x >= 0 && y >= 0 && x < width && y < height) {
+          tiles[x][y] = Tile.Floor;
+        }
+      }
+    }
+  }
+}
+
+function generateHallway(
+  rng: ReturnType<typeof createRng>,
+  tiles: Tile[][],
+  room: Coordinate,
+  otherRoom: Coordinate,
+  secondExit: boolean,
+  width: number,
+  height: number
+): void {
+  let xHead = room.x;
+  let yHead = room.y;
+  let direction: HallwayDirection;
+  let distance: number;
+
+  if (secondExit) {
+    if (yHead > Math.floor(height / 2) + INFO_SPACE) {
+      direction = "SOUTH";
+    } else {
+      direction = "NORTH";
+    }
+    distance = rng.int(5, 7);
+    generateDirectionalFloor(tiles, xHead, yHead, distance, direction);
+    xHead += distance * DIRECTION_STEP[direction].dx;
+    yHead += distance * DIRECTION_STEP[direction].dy;
+
+    if (xHead < Math.floor(width / 2)) {
+      direction = "EAST";
+    } else {
+      direction = "WEST";
+    }
+    generateDirectionalFloor(tiles, xHead, yHead, distance, direction);
+    xHead += distance * DIRECTION_STEP[direction].dx;
+    yHead += distance * DIRECTION_STEP[direction].dy;
+  }
+
+  while (!(xHead === otherRoom.x && yHead === otherRoom.y)) {
+    if (xHead === otherRoom.x) {
+      if (yHead < otherRoom.y) {
+        direction = "NORTH";
+      } else {
+        direction = "SOUTH";
+      }
+    } else if (yHead === otherRoom.y) {
+      if (xHead < otherRoom.x) {
+        direction = "EAST";
+      } else {
+        direction = "WEST";
+      }
+    } else if (xHead < otherRoom.x) {
+      if (yHead < otherRoom.y) {
+        direction = getRandomDirection(rng, "NORTH", "EAST");
+      } else {
+        direction = getRandomDirection(rng, "SOUTH", "EAST");
+      }
+    } else if (yHead < otherRoom.y) {
+      direction = getRandomDirection(rng, "NORTH", "WEST");
+    } else {
+      direction = getRandomDirection(rng, "SOUTH", "WEST");
+    }
+
+    if (direction === "NORTH" || direction === "SOUTH") {
+      distance = Math.floor(gaussianBounded(rng, 10, 3, 0, Math.abs(otherRoom.y - yHead) + 1));
+    } else {
+      distance = Math.floor(gaussianBounded(rng, 10, 3, 0, Math.abs(otherRoom.x - xHead) + 1));
+    }
+
+    generateDirectionalFloor(tiles, xHead, yHead, distance, direction);
+    xHead += distance * DIRECTION_STEP[direction].dx;
+    yHead += distance * DIRECTION_STEP[direction].dy;
+  }
+}
+
+function generateDirectionalFloor(
+  tiles: Tile[][],
+  xPos: number,
+  yPos: number,
+  distance: number,
+  direction: HallwayDirection
+): void {
+  const { dx, dy } = DIRECTION_STEP[direction];
+  for (let i = 0; i < distance; i += 1) {
+    tiles[xPos + i * dx][yPos + i * dy] = Tile.Floor;
+  }
+}
+
+function getRandomDirection(
+  rng: ReturnType<typeof createRng>,
+  heads: HallwayDirection,
+  tails: HallwayDirection
+): HallwayDirection {
+  return bernoulli(rng) ? heads : tails;
+}
+
+function generatePerimeter(tiles: Tile[][], width: number, height: number): void {
+  for (let x = 0; x < width; x += 1) {
+    tiles[x][0] = Tile.Wall;
+    tiles[x][height - 1] = Tile.Wall;
+  }
+  for (let y = 0; y < height; y += 1) {
+    tiles[0][y] = Tile.Wall;
+    tiles[width - 1][y] = Tile.Wall;
+  }
+}
+
+function placeGoalsInExtremeRooms(tiles: Tile[][], rooms: Coordinate[], width: number, height: number): void {
   if (rooms.length === 0) {
     return;
   }
@@ -68,7 +220,7 @@ function placeGoalsInExtremeRooms(tiles: Tile[][], rooms: Room[], width: number,
     if (room.x < leftMost.x) {
       leftMost = room;
     }
-    if (room.x + room.w > rightMost.x + rightMost.w) {
+    if (room.x > rightMost.x) {
       rightMost = room;
     }
   }
@@ -79,33 +231,24 @@ function placeGoalsInExtremeRooms(tiles: Tile[][], rooms: Room[], width: number,
 
 function placeGoalOnRoomEdge(
   tiles: Tile[][],
-  room: Room,
+  room: Coordinate,
   edge: "left" | "right",
   goalTile: Tile.Goal1 | Tile.Goal2,
   width: number,
   height: number
 ): void {
-  // Goals should live on the outer border wall, not inside rooms.
   const goalX = edge === "left" ? 0 : width - 1;
   const interiorX = edge === "left" ? 1 : width - 2;
-  const roomBoundaryX = edge === "left" ? room.x : room.x + room.w - 1;
-
-  const centerY = room.y + Math.floor(room.h / 2);
-  const startY = Math.max(room.y, Math.min(centerY - 1, room.y + room.h - 3));
-  for (let y = startY; y < startY + 3; y += 1) {
+  for (let y = room.y - 1; y <= room.y + 1; y += 1) {
     if (!isInside(goalX, y, width, height)) {
       continue;
     }
     tiles[goalX][y] = goalTile;
-
-    // Ensure the side facing into the map is playable floor.
     if (isInside(interiorX, y, width, height)) {
       tiles[interiorX][y] = Tile.Floor;
     }
-
-    // Carve a short lane from the extreme room to the border goal.
-    const fromX = Math.min(interiorX, roomBoundaryX);
-    const toX = Math.max(interiorX, roomBoundaryX);
+    const fromX = Math.min(interiorX, room.x);
+    const toX = Math.max(interiorX, room.x);
     for (let x = fromX; x <= toX; x += 1) {
       if (isInside(x, y, width, height)) {
         tiles[x][y] = Tile.Floor;
@@ -114,251 +257,36 @@ function placeGoalOnRoomEdge(
   }
 }
 
-function randomRoom(rng: ReturnType<typeof createRng>, width: number, height: number): Room {
-  const minW = Math.max(5, Math.floor(width * 0.08));
-  const maxW = Math.max(minW + 1, Math.min(12, Math.floor(width * 0.24)));
-  const minH = Math.max(4, Math.floor(height * 0.14));
-  const maxH = Math.max(minH + 1, Math.min(12, Math.floor(height * 0.3)));
-
-  const w = biasedLargeInt(rng, minW, maxW);
-  const h = biasedLargeInt(rng, minH, maxH);
-  const x = rng.int(1, Math.max(2, width - w - 1));
-  const y = rng.int(1, Math.max(2, height - h - 1));
-  return { x, y, w, h };
-}
-
-function overlapsExisting(room: Room, existing: Room[]): boolean {
-  return existing.some((other) => {
-    return (
-      room.x - 1 < other.x + other.w + 1 &&
-      room.x + room.w + 1 > other.x - 1 &&
-      room.y - 1 < other.y + other.h + 1 &&
-      room.y + room.h + 1 > other.y - 1
-    );
-  });
-}
-
-function carveRoom(room: Room, tiles: Tile[][]): void {
-  for (let x = room.x; x < room.x + room.w; x += 1) {
-    for (let y = room.y; y < room.y + room.h; y += 1) {
-      tiles[x][y] = Tile.Floor;
-    }
-  }
-}
-
-function centerOf(room: Room): Coordinate {
-  return { x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) };
-}
-
-function connectRoomsWithMinimumHallways(tiles: Tile[][], centers: Coordinate[]): void {
-  if (centers.length < 2) {
-    return;
-  }
-
-  const hallwayCounts = Array.from({ length: centers.length }, () => 0);
-  const usedDirections = Array.from({ length: centers.length }, () => new Set<CardinalDirection>());
-  const existingConnections = new Set<string>();
-
-  const connectRooms = (i: number, j: number, allowDuplicate = false): boolean => {
-    if (i === j) {
-      return false;
-    }
-    const key = edgeKey(i, j);
-    if (!allowDuplicate && existingConnections.has(key)) {
-      return false;
-    }
-
-    const directionFromI = directionFrom(centers[i], centers[j]);
-    const directionFromJ = oppositeDirection(directionFromI);
-    const verticalFirst = Math.abs(centers[i].y - centers[j].y) > Math.abs(centers[i].x - centers[j].x);
-    carveCorridor(tiles, centers[i], centers[j], verticalFirst);
-    hallwayCounts[i] += 1;
-    hallwayCounts[j] += 1;
-    usedDirections[i].add(directionFromI);
-    usedDirections[j].add(directionFromJ);
-    existingConnections.add(key);
-    return true;
-  };
-
-  // Build a baseline connected graph with short hallways (minimum spanning tree by Manhattan distance).
-  const disjointSet = new DisjointSet(centers.length);
-  const edges: Array<{ i: number; j: number; distance: number }> = [];
-  for (let i = 0; i < centers.length; i += 1) {
-    for (let j = i + 1; j < centers.length; j += 1) {
-      edges.push({
-        i,
-        j,
-        distance: manhattanDistance(centers[i], centers[j]),
-      });
-    }
-  }
-  edges.sort((a, b) => a.distance - b.distance);
-
-  for (const edge of edges) {
-    if (disjointSet.union(edge.i, edge.j)) {
-      connectRooms(edge.i, edge.j);
-    }
-  }
-
-  // Add short, direction-diverse hallways until every room has enough exits.
-  let madeProgress = true;
-  while (madeProgress && hallwayCounts.some((count) => count < MIN_HALLWAYS_PER_ROOM)) {
-    madeProgress = false;
-    for (let i = 0; i < centers.length; i += 1) {
-      if (hallwayCounts[i] >= MIN_HALLWAYS_PER_ROOM) {
-        continue;
-      }
-
-      let bestRoomIndex = -1;
-      let bestScore = Number.POSITIVE_INFINITY;
-
-      for (let j = 0; j < centers.length; j += 1) {
-        if (j === i) {
-          continue;
-        }
-        const key = edgeKey(i, j);
-        const alreadyConnected = existingConnections.has(key);
-        if (alreadyConnected && centers.length > 2) {
-          continue;
-        }
-
-        const distance = manhattanDistance(centers[i], centers[j]);
-        const primaryDirection = directionFrom(centers[i], centers[j]);
-        const opposite = oppositeDirection(primaryDirection);
-        const repeatDirectionPenalty = usedDirections[i].has(primaryDirection) ? 20 : 0;
-        const oppositeRepeatPenalty = usedDirections[j].has(opposite) ? 10 : 0;
-        const longHallwayPenalty = distance * 0.6;
-        const needsHallwayBonus = hallwayCounts[j] < MIN_HALLWAYS_PER_ROOM ? -8 : 0;
-
-        // Heavily favor short hallways and encourage different exit directions per room.
-        const score = distance + longHallwayPenalty + repeatDirectionPenalty + oppositeRepeatPenalty + needsHallwayBonus;
-        if (score < bestScore) {
-          bestScore = score;
-          bestRoomIndex = j;
-        }
-      }
-
-      if (bestRoomIndex === -1) {
-        continue;
-      }
-
-      if (connectRooms(i, bestRoomIndex, centers.length === 2)) {
-        madeProgress = true;
-      }
-    }
-  }
-}
-
-function carveCorridor(tiles: Tile[][], from: Coordinate, to: Coordinate, verticalFirst = false): void {
-  let x = from.x;
-  let y = from.y;
-
-  if (verticalFirst) {
-    while (y !== to.y) {
-      tiles[x][y] = Tile.Floor;
-      y += to.y > y ? 1 : -1;
-    }
-    while (x !== to.x) {
-      tiles[x][y] = Tile.Floor;
-      x += to.x > x ? 1 : -1;
-    }
-  } else {
-    while (x !== to.x) {
-      tiles[x][y] = Tile.Floor;
-      x += to.x > x ? 1 : -1;
-    }
-    while (y !== to.y) {
-      tiles[x][y] = Tile.Floor;
-      y += to.y > y ? 1 : -1;
-    }
-  }
-  tiles[x][y] = Tile.Floor;
-}
-
 function isInside(x: number, y: number, width: number, height: number): boolean {
   return x >= 0 && x < width && y >= 0 && y < height;
 }
 
-function calculateRoomTarget(rng: ReturnType<typeof createRng>, width: number, height: number): number {
-  const area = width * height;
-  const baseTarget = Math.floor(area / 180);
-  const jitter = rng.int(-2, 3);
-  return clamp(baseTarget + jitter, 10, 36);
+function bernoulli(rng: ReturnType<typeof createRng>): boolean {
+  return rng.next() < 0.5;
 }
 
-function biasedLargeInt(rng: ReturnType<typeof createRng>, min: number, maxExclusive: number): number {
-  if (maxExclusive <= min + 1) {
-    return min;
+function gaussian(rng: ReturnType<typeof createRng>): number {
+  let x = 0;
+  let y = 0;
+  let r = 0;
+  do {
+    x = -1 + 2 * rng.next();
+    y = -1 + 2 * rng.next();
+    r = x * x + y * y;
+  } while (r >= 1 || r === 0);
+  return x * Math.sqrt((-2 * Math.log(r)) / r);
+}
+
+function gaussianBounded(
+  rng: ReturnType<typeof createRng>,
+  mu: number,
+  sigma: number,
+  lowerBound: number,
+  upperBound: number
+): number {
+  let value = Number.NEGATIVE_INFINITY;
+  while (value < lowerBound || value > upperBound) {
+    value = mu + sigma * gaussian(rng);
   }
-  const a = rng.int(min, maxExclusive);
-  const b = rng.int(min, maxExclusive);
-  return Math.max(a, b);
-}
-
-function edgeKey(i: number, j: number): string {
-  return i < j ? `${i}-${j}` : `${j}-${i}`;
-}
-
-function manhattanDistance(a: Coordinate, b: Coordinate): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-}
-
-function directionFrom(from: Coordinate, to: Coordinate): CardinalDirection {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx >= 0 ? "east" : "west";
-  }
-  return dy >= 0 ? "north" : "south";
-}
-
-function oppositeDirection(direction: CardinalDirection): CardinalDirection {
-  switch (direction) {
-    case "north":
-      return "south";
-    case "south":
-      return "north";
-    case "east":
-      return "west";
-    case "west":
-      return "east";
-  }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-class DisjointSet {
-  private readonly parent: number[];
-  private readonly rank: number[];
-
-  constructor(size: number) {
-    this.parent = Array.from({ length: size }, (_, index) => index);
-    this.rank = Array.from({ length: size }, () => 0);
-  }
-
-  find(value: number): number {
-    if (this.parent[value] !== value) {
-      this.parent[value] = this.find(this.parent[value]);
-    }
-    return this.parent[value];
-  }
-
-  union(a: number, b: number): boolean {
-    const rootA = this.find(a);
-    const rootB = this.find(b);
-    if (rootA === rootB) {
-      return false;
-    }
-    if (this.rank[rootA] < this.rank[rootB]) {
-      this.parent[rootA] = rootB;
-    } else if (this.rank[rootA] > this.rank[rootB]) {
-      this.parent[rootB] = rootA;
-    } else {
-      this.parent[rootB] = rootA;
-      this.rank[rootA] += 1;
-    }
-    return true;
-  }
+  return value;
 }

@@ -1,8 +1,6 @@
 import Phaser from "phaser";
 import { Command, Direction } from "../../core/types";
 
-const MOVE_REPEAT_MS = 120;
-
 type KeyMap = {
   w: Phaser.Input.Keyboard.Key;
   a: Phaser.Input.Keyboard.Key;
@@ -25,8 +23,6 @@ type KeyMap = {
 
 export class KeyboardAdapter {
   private keys: KeyMap;
-  private p1Hold: HoldState = { direction: null, elapsedMs: 0 };
-  private p2Hold: HoldState = { direction: null, elapsedMs: 0 };
 
   constructor(scene: Phaser.Scene) {
     this.keys = scene.input.keyboard!.addKeys({
@@ -50,18 +46,20 @@ export class KeyboardAdapter {
     }) as KeyMap;
   }
 
-  pollCommands(deltaMs: number): Command[] {
+  pollCommands(_deltaMs: number): Command[] {
     const commands: Command[] = [];
 
-    this.pollP1(commands, deltaMs);
-    this.pollP2(commands, deltaMs);
+    this.pollP1(commands);
+    this.pollP2(commands);
 
     return commands;
   }
 
-  private pollP1(commands: Command[], deltaMs: number): void {
-    const dir = pressedDirection(this.keys.w, this.keys.d, this.keys.s, this.keys.a);
-    emitRepeatedMove(commands, 1, dir, this.p1Hold, deltaMs);
+  private pollP1(commands: Command[]): void {
+    const dir = justPressedDirection(this.keys.w, this.keys.d, this.keys.s, this.keys.a);
+    if (dir !== null) {
+      commands.push({ type: "MOVE", playerId: 1, direction: dir });
+    }
     if (Phaser.Input.Keyboard.JustDown(this.keys.e)) {
       commands.push({ type: "ACTION", playerId: 1 });
     }
@@ -70,11 +68,13 @@ export class KeyboardAdapter {
     }
   }
 
-  private pollP2(commands: Command[], deltaMs: number): void {
-    const ijkl = pressedDirection(this.keys.i, this.keys.l, this.keys.k, this.keys.j);
-    const arrows = pressedDirection(this.keys.up, this.keys.right, this.keys.down, this.keys.left);
+  private pollP2(commands: Command[]): void {
+    const ijkl = justPressedDirection(this.keys.i, this.keys.l, this.keys.k, this.keys.j);
+    const arrows = justPressedDirection(this.keys.up, this.keys.right, this.keys.down, this.keys.left);
     const dir = ijkl ?? arrows;
-    emitRepeatedMove(commands, 2, dir, this.p2Hold, deltaMs);
+    if (dir !== null) {
+      commands.push({ type: "MOVE", playerId: 2, direction: dir });
+    }
     if (Phaser.Input.Keyboard.JustDown(this.keys.o) || Phaser.Input.Keyboard.JustDown(this.keys.period)) {
       commands.push({ type: "ACTION", playerId: 2 });
     }
@@ -84,55 +84,23 @@ export class KeyboardAdapter {
   }
 }
 
-type HoldState = {
-  direction: Direction | null;
-  elapsedMs: number;
-};
-
-function pressedDirection(
+function justPressedDirection(
   north: Phaser.Input.Keyboard.Key,
   east: Phaser.Input.Keyboard.Key,
   south: Phaser.Input.Keyboard.Key,
   west: Phaser.Input.Keyboard.Key
 ): Direction | null {
-  if (north.isDown) {
+  if (Phaser.Input.Keyboard.JustDown(north)) {
     return "N";
   }
-  if (east.isDown) {
+  if (Phaser.Input.Keyboard.JustDown(east)) {
     return "E";
   }
-  if (south.isDown) {
+  if (Phaser.Input.Keyboard.JustDown(south)) {
     return "S";
   }
-  if (west.isDown) {
+  if (Phaser.Input.Keyboard.JustDown(west)) {
     return "W";
   }
   return null;
-}
-
-function emitRepeatedMove(
-  commands: Command[],
-  playerId: 1 | 2,
-  currentDirection: Direction | null,
-  hold: HoldState,
-  deltaMs: number
-): void {
-  if (currentDirection === null) {
-    hold.direction = null;
-    hold.elapsedMs = 0;
-    return;
-  }
-
-  if (hold.direction !== currentDirection) {
-    hold.direction = currentDirection;
-    hold.elapsedMs = 0;
-    commands.push({ type: "MOVE", playerId, direction: currentDirection });
-    return;
-  }
-
-  hold.elapsedMs += deltaMs;
-  if (hold.elapsedMs >= MOVE_REPEAT_MS) {
-    hold.elapsedMs -= MOVE_REPEAT_MS;
-    commands.push({ type: "MOVE", playerId, direction: currentDirection });
-  }
 }

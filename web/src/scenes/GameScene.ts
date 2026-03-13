@@ -12,6 +12,7 @@ export class GameScene extends Phaser.Scene {
   private keyboard!: KeyboardAdapter;
   private tileRenderer!: PhaserRenderer;
   private hudText!: Phaser.GameObjects.Text;
+  private hudVisible = true;
   private flyAccumulatorMs = 0;
   private ballAccumulatorMs = 0;
 
@@ -20,6 +21,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    const storedHudVisible = this.registry.get("hudVisible");
+    if (typeof storedHudVisible === "boolean") {
+      this.hudVisible = storedHudVisible;
+    }
+
     const seed = Date.now() % 2_147_483_647;
     this.state = createInitialState(seed, "ONE_V_ONE");
     this.keyboard = new KeyboardAdapter(this);
@@ -33,6 +39,12 @@ export class GameScene extends Phaser.Scene {
       })
       .setDepth(10)
       .setScrollFactor(0);
+    this.hudText.setVisible(this.hudVisible);
+
+    this.registry.events.on("changedata-hudVisible", this.onHudVisibilityChanged, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.registry.events.off("changedata-hudVisible", this.onHudVisibilityChanged, this);
+    });
 
     this.tileRenderer.draw(this.state);
     this.refreshHud();
@@ -69,6 +81,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshHud(): void {
+    if (!this.hudVisible) {
+      return;
+    }
     const p1 = this.state.players[1].position;
     const p2 = this.state.players[2].position;
     const holder = this.state.players[1].hasBall ? "P1" : this.state.players[2].hasBall ? "P2" : "none";
@@ -84,5 +99,16 @@ export class GameScene extends Phaser.Scene {
         `Ball: ${holder} flying:${ballFlying} | P1 steps: ${p1Steps} fly:${p1Fly} flying:${p1Flying} | P2 steps: ${p2Steps} fly:${p2Fly} flying:${p2Flying}\n` +
         `P1 WASD move, Q fly, E action: (${p1.x}, ${p1.y}) | P2 IJKL/Arrows move, U fly, O or . action: (${p2.x}, ${p2.y})`
     );
+  }
+
+  private onHudVisibilityChanged(_parent: Phaser.Data.DataManager, value: unknown): void {
+    if (typeof value !== "boolean") {
+      return;
+    }
+    this.hudVisible = value;
+    this.hudText.setVisible(value);
+    if (value) {
+      this.refreshHud();
+    }
   }
 }

@@ -39,6 +39,27 @@
         line-height: 1.5;
       }
 
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      .control-button {
+        border: 1px solid #222222;
+        background: #f4f4f4;
+        color: #111111;
+        border-radius: 6px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font-size: 0.95rem;
+      }
+
+      .control-button:hover {
+        background: #e8e8e8;
+      }
+
       #app {
         display: inline-block;
       }
@@ -62,6 +83,10 @@
         </p>
       </section>
       <div id="app"></div>
+      <section class="controls">
+        <button id="hud-toggle" class="control-button" type="button">Show HUD</button>
+        <button id="music-toggle" class="control-button" type="button">Mute Music</button>
+      </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
