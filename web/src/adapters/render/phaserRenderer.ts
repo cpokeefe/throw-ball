@@ -141,9 +141,23 @@ export class PhaserRenderer {
     }
 
     const glyph = this.playerGlyphs[player.id];
-    glyph.setText(this.iconForDirection(player.direction));
-    glyph.setAngle(this.iconAngleForDirection(player.direction));
-    glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2);
+    if (player.direction === "E") {
+      glyph.setText(">");
+      glyph.setAngle(0);
+      glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 1);
+    } else if (player.direction === "S") {
+      glyph.setText(">");
+      glyph.setAngle(90);
+      glyph.setPosition(px + TILE_SIZE / 2 - 1, py + TILE_SIZE / 2);
+    } else if (player.direction === "W") {
+      glyph.setText("<");
+      glyph.setAngle(0);
+      glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 1);
+    } else if (player.direction === "N") {
+      glyph.setText("<");
+      glyph.setAngle(90);
+      glyph.setPosition(px + TILE_SIZE / 2 - 1, py + TILE_SIZE / 2);
+    }
     glyph.setVisible(!player.flyArmed || blinkOn);
   }
 
@@ -186,22 +200,5 @@ export class PhaserRenderer {
     for (let i = used; i < this.goalGlyphs.length; i += 1) {
       this.goalGlyphs[i].setVisible(false);
     }
-  }
-
-  private iconForDirection(direction: Direction): string {
-    if (direction === "S" || direction === "E") {
-      return ">";
-    }
-    if (direction === "N" || direction === "W") {
-      return "<";
-    }
-    return "Error: no icon for direction";
-  }
-
-  private iconAngleForDirection(direction: Direction): number {
-    if (direction === "N" || direction === "S") {
-      return 90;
-    }
-    return 0;
   }
 }
