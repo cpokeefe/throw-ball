@@ -29,7 +29,7 @@ export class PhaserRenderer {
         .setOrigin(0.5)
         .setDepth(5),
       2: scene.add
-        .text(0, 0, "<", {
+        .text(0, 0, ">", {
           fontFamily: "monospace",
           fontSize: PLAYER_ICON_FONT_SIZE,
           color: "#e07bff",
@@ -142,7 +142,8 @@ export class PhaserRenderer {
 
     const glyph = this.playerGlyphs[player.id];
     glyph.setText(this.iconForDirection(player.direction));
-    glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + this.iconYOffset(player.direction));
+    glyph.setAngle(this.iconAngleForDirection(player.direction));
+    glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2);
     glyph.setVisible(!player.flyArmed || blinkOn);
   }
 
@@ -188,24 +189,18 @@ export class PhaserRenderer {
   }
 
   private iconForDirection(direction: Direction): string {
-    if (direction === "N") {
-      return "ʌ";
-    }
-    if (direction === "E") {
+    if (direction === "S" || direction === "E") {
       return ">";
     }
-    if (direction === "S") {
-      return "v";
+    if (direction === "N" || direction === "W") {
+      return "<";
     }
-    return "<";
+    return "Error: no icon for direction";
   }
 
-  private iconYOffset(direction: Direction): number {
+  private iconAngleForDirection(direction: Direction): number {
     if (direction === "N" || direction === "S") {
-      return 0;
-    }
-    if (direction === "E" || direction === "W") {
-      return 1;
+      return 90;
     }
     return 0;
   }
