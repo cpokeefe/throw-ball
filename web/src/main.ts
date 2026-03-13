@@ -5,12 +5,12 @@ import { GameScene } from "./scenes/GameScene";
 const TILE_SIZE = 16;
 const MAP_WIDTH = 80;
 const MAP_HEIGHT = 30;
+const BASS_TRACK_FILENAME = "Ronald Jenkees - Try The Bass.wav";
 const BASS_TRACK_ABSOLUTE_PATH =
-  "/Users/chiefokeefe/Developer/throw-ball/Ronald Jenkees - Try The Bass.wav";
+  `/Users/chiefokeefe/Developer/throw-ball/${BASS_TRACK_FILENAME}`;
 const BASS_TRACK_SOURCES = [
-  "/Ronald Jenkees - Try The Bass.wav",
-  `/@fs${BASS_TRACK_ABSOLUTE_PATH}`,
-  encodeURI(`file://${BASS_TRACK_ABSOLUTE_PATH}`),
+  `${import.meta.env.BASE_URL}${encodeURIComponent(BASS_TRACK_FILENAME)}`,
+  encodeURI(`/@fs${BASS_TRACK_ABSOLUTE_PATH}`),
 ];
 let bassTrack: HTMLAudioElement | null = null;
 
@@ -34,7 +34,13 @@ const startLoopingBassTrack = (): void => {
   });
 
   const attemptPlayback = (): void => {
-    void track.play().catch(() => {
+    if (track.paused === false) {
+      return;
+    }
+
+    void track.play().then(() => {
+      removeInteractionListeners();
+    }).catch(() => {
       // Ignore autoplay rejections; interaction fallback below retries playback.
     });
   };
@@ -49,14 +55,19 @@ const startLoopingBassTrack = (): void => {
 
   const handleInteraction = (): void => {
     attemptPlayback();
+  };
+
+  const removeInteractionListeners = (): void => {
     for (const eventName of interactionEvents) {
       window.removeEventListener(eventName, handleInteraction);
     }
   };
 
   for (const eventName of interactionEvents) {
-    window.addEventListener(eventName, handleInteraction, { once: true });
+    window.addEventListener(eventName, handleInteraction);
   }
+
+  track.addEventListener("canplay", attemptPlayback);
 };
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -90,7 +101,7 @@ const syncMusicMuted = (): void => {
   }
 
   if (musicToggle instanceof HTMLButtonElement) {
-    musicToggle.textContent = musicMuted ? "Unmute Music" : "Mute Music";
+    musicToggle.textContent = musicMuted ? "Unmute" : "Mute";
     musicToggle.setAttribute("aria-pressed", String(musicMuted));
   }
 };

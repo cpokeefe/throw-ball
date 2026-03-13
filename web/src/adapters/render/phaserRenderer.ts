@@ -176,7 +176,7 @@ export class PhaserRenderer {
     glyph.setText(GOAL_GLYPH);
     glyph.setColor(color);
     glyph.setBackgroundColor("#000000");
-    glyph.setPosition(px + 3, py + 1);
+    glyph.setPosition(px + 3, py);
     glyph.setVisible(true);
   }
 
