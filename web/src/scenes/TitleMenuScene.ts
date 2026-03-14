@@ -13,30 +13,29 @@ export class TitleMenuScene extends Phaser.Scene {
       .text(width * 0.5, height * 0.25, "Throw Ball", {
         fontFamily: "monaco",
         fontSize: "50px",
-        fontStyle: "bold",
+        // fontStyle: "bold",
         align: "center",
         // color: "#ffffff",
       })
       .setOrigin(0.5);
 
     this.add
-      .text(width / 2, height * 0.6, "New Game (N)\nLoad Game (L)\nReplay Game (R)\nSwitch Game Mode (X)\nQuit (Q)", {
+      .text(width / 2, height * 0.55, "New Game (N)\nLoad Game (L)\nReplay Game (R)\nSwitch Game Mode (X)\nQuit (Q)", {
           fontFamily: "monaco",
           fontSize: "20px",
-          fontStyle: "bold",
-          color: "#ffffff",
+          // fontStyle: "bold",
           align: "center",
           lineSpacing: 12,
       })
       .setOrigin(0.5);
 
-    // this.add
-    //   .text(width / 2, height * 0.84, "Current Game Mode: ONEvONE", {
-    //     fontFamily: "monospace",
-    //     fontSize: "32px",
-    //     color: "#ffffff",
-    //   })
-    //   .setOrigin(0.5);
+    this.add
+      .text(width / 2, height * 0.87, "Current Game Mode: ONEvONE", {
+        fontFamily: "monospace",
+        fontSize: "20px",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5);
 
     const startGame = (): void => {
       this.scene.start("game");
