@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
+import { TitleMenuScene } from "./scenes/TitleMenuScene";
 
 const TILE_SIZE = 16;
 const MAP_WIDTH = 80;
@@ -79,7 +80,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: MAP_HEIGHT * TILE_SIZE,
   parent: "app",
   backgroundColor: "#0d0f12",
-  scene: [BootScene, GameScene],
+  scene: [BootScene, TitleMenuScene, GameScene],
 };
 
 const titleScreen = document.getElementById("title-screen");

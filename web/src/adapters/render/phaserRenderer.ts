@@ -2,9 +2,9 @@ import Phaser from "phaser";
 import { Direction, GameState, PlayerState, Tile } from "../../core/types";
 
 const TILE_SIZE = 16;
-const PLAYER_ICON_FONT_SIZE = "18px";
+const PLAYER_ICON_FONT_SIZE = String(TILE_SIZE * 9/8) + "px";
 const GOAL_GLYPH = "▒";
-const GOAL_FONT_SIZE = "16px";
+const GOAL_FONT_SIZE = TILE_SIZE;
 
 export class PhaserRenderer {
   private scene: Phaser.Scene;
@@ -144,19 +144,19 @@ export class PhaserRenderer {
     if (player.direction === "E") {
       glyph.setText(">");
       glyph.setAngle(0);
-      glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 1);
+      glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 1.78);
     } else if (player.direction === "S") {
       glyph.setText(">");
       glyph.setAngle(90);
-      glyph.setPosition(px + TILE_SIZE / 2 - 1, py + TILE_SIZE / 2);
+      glyph.setPosition(px + TILE_SIZE / 2.29, py + TILE_SIZE / 2);
     } else if (player.direction === "W") {
       glyph.setText("<");
       glyph.setAngle(0);
-      glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 1);
+      glyph.setPosition(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 1); // TODO: change me to 1.78 if it looks the same (tile size scaling function)
     } else if (player.direction === "N") {
       glyph.setText("<");
       glyph.setAngle(90);
-      glyph.setPosition(px + TILE_SIZE / 2 - 1, py + TILE_SIZE / 2);
+      glyph.setPosition(px + TILE_SIZE / 2 - 1, py + TILE_SIZE / 2); // TODO: change me to 2.29 if it looks the same (tile size scaling function)
     }
     glyph.setVisible(!player.flyArmed || blinkOn);
   }
