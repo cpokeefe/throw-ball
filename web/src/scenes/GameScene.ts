@@ -39,7 +39,7 @@ const estimateMonospaceTextWidth = (text: string, fontSizePx: number): number =>
 export class GameScene extends Phaser.Scene {
   private static readonly FLY_STEP_MS = 6;
   private static readonly BALL_STEP_MS = 3;
-  private static readonly SCORE_TO_WIN = 2;
+  private static readonly SCORE_TO_WIN = 3;
   private state!: GameState;
   private keyboard!: KeyboardAdapter;
   private tileRenderer!: PhaserRenderer;
