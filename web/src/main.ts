@@ -79,7 +79,7 @@ const config: Phaser.Types.Core.GameConfig = {
   width: MAP_WIDTH * TILE_SIZE,
   height: MAP_HEIGHT * TILE_SIZE,
   parent: "app",
-  backgroundColor: "#0d0f12",
+  backgroundColor: "#000fff", // blue flash lol
   scene: [BootScene, TitleMenuScene, GameScene],
 };
 
