@@ -19,6 +19,7 @@ export function createInitialState(seed: number, mode: GameMode = "ONE_V_ONE"): 
     seed,
     rngState: (seed ^ 0x9e3779b9) >>> 0,
     mode,
+    goalsSwapped: false,
     map,
     players: {
       1: {

@@ -13,10 +13,12 @@
         margin: 0;
         background: #ffffff;
         color: #111111;
+        overflow: auto;
       }
 
       .page {
         padding: 24px;
+        min-width: max-content;
       }
 
       .header {
@@ -69,12 +71,11 @@
       }
 
       .title-screen {
-        width: 100%;
-        max-width: 1280px;
-        min-height: 480px;
+        width: var(--game-width, 1280px);
+        height: var(--game-height, 720px);
         border: 1px solid #222222;
-        border-radius: 8px;
-        background: linear-gradient(160deg, #0d0f12 0%, #171b21 100%);
+        border-radius: 0;
+        background: var(--game-bg, #000000);
         color: #ffffff;
         display: flex;
         flex-direction: column;
@@ -124,7 +125,7 @@
       </section>
       <div id="app"></div>
       <section id="game-controls" class="controls hidden">
-        <button id="hud-toggle" class="control-button" type="button">Show HUD</button>
+        <button id="hud-toggle" class="control-button" type="button">Controls</button>
         <button id="music-toggle" class="control-button" type="button">Mute Music</button>
       </section>
     </main>

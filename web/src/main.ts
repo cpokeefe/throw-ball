@@ -1,11 +1,9 @@
 import Phaser from "phaser";
+import { GAME_BACKGROUND_COLOR, GAME_HEIGHT, GAME_WIDTH } from "./config/display";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
 import { TitleMenuScene } from "./scenes/TitleMenuScene";
-
-const TILE_SIZE = 16;
-const MAP_WIDTH = 80;
-const MAP_HEIGHT = 30;
+import { WinScene } from "./scenes/WinScene";
 const BASS_TRACK_FILENAME = "Ronald Jenkees - Try The Bass.wav";
 const BASS_TRACK_ABSOLUTE_PATH =
   `/Users/chiefokeefe/Developer/throw-ball/${BASS_TRACK_FILENAME}`;
@@ -76,11 +74,11 @@ const startLoopingBassTrack = (): void => {
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: MAP_WIDTH * TILE_SIZE,
-  height: MAP_HEIGHT * TILE_SIZE,
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
   parent: "app",
-  backgroundColor: "#000fff", // blue flash lol
-  scene: [BootScene, TitleMenuScene, GameScene],
+  backgroundColor: GAME_BACKGROUND_COLOR,
+  scene: [BootScene, TitleMenuScene, GameScene, WinScene],
 };
 
 const titleScreen = document.getElementById("title-screen");
@@ -90,13 +88,17 @@ const hudToggle = document.getElementById("hud-toggle");
 const musicToggle = document.getElementById("music-toggle");
 let hudVisible = false;
 
+document.documentElement.style.setProperty("--game-width", `${GAME_WIDTH}px`);
+document.documentElement.style.setProperty("--game-height", `${GAME_HEIGHT}px`);
+document.documentElement.style.setProperty("--game-bg", GAME_BACKGROUND_COLOR);
+
 const syncHudVisibility = (): void => {
   if (game !== null) {
     game.registry.set("hudVisible", hudVisible);
   }
 
   if (hudToggle instanceof HTMLButtonElement) {
-    hudToggle.textContent = hudVisible ? "Hide HUD" : "Show HUD";
+    hudToggle.textContent = hudVisible ? "Hide Controls" : "Controls";
     hudToggle.setAttribute("aria-pressed", String(hudVisible));
   }
 };
@@ -126,7 +128,7 @@ const startGame = (): void => {
     titleScreen.classList.add("hidden");
   }
   if (gameControls !== null) {
-    gameControls.classList.remove("hidden");
+    gameControls.classList.add("hidden");
   }
 };
 

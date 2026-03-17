@@ -1,23 +1,17 @@
 import Phaser from "phaser";
 import { GameState, PlayerState, Tile } from "../../core/types";
-
-// COLOR CONSTANTS
-const FLOOR_COLOR = 0x000000;
-const FLOOR_DOT_COLOR = 0x80c080;
-
-const WALL_BACKGROUND_COLOR = 0x404040;
-const WALL_GLYPH_COLOR = 0x3c648c;
-
-const PLAYER_COLOR_1 = 0x6aff6a;
-const PLAYER_COLOR_2 = 0xe07bff;
-const PLAYER_BALL_COLOR = 0xffff00;
-const PLAYER_NO_STEPS_COLOR = 0xff0000;
-const PLAYER_HIGHLIGHT_ALPHA = 0.35;
-
-const BALL_COLOR = 0xf6d32d;
-
-// SIZE CONSTANTS
-const TILE_SIZE = 17;
+import {
+  FLOOR_COLOR,
+  FLOOR_DOT_COLOR,
+  PLAYER_1_COLOR,
+  PLAYER_2_COLOR,
+  PLAYER_BALL_COLOR,
+  PLAYER_HIGHLIGHT_ALPHA,
+  PLAYER_NO_STEPS_COLOR,
+  WALL_BACKGROUND_COLOR,
+  WALL_GLYPH_COLOR,
+} from "../../config/colors";
+import { TILE_SIZE } from "../../config/display";
 
 const FLOOR_DOT_RADIUS_RATIO = 0.1;
 
@@ -32,17 +26,18 @@ const PLAYER_CHEVRON_LENGTH_RATIO = 0.58;
 const BALL_RADIUS_RATIO = 0.22;
 
 const GOAL_CHECKER_COLUMNS = 5;
-const GOAL_CHECKER_ROWS = 6;
+const GOAL_CHECKER_ROWS = 6; // 5 is interesting
 
-// GAMEPLAY CONSTANTS
+// DYNAMIC VISUALIZATION CONSTANTS
 const FLY_ARMED_BLINK_MS = 120;
 
 export class PhaserRenderer {
   private graphics: Phaser.GameObjects.Graphics;
   private worldHeight: number;
 
-  constructor(scene: Phaser.Scene, worldHeight: number) {
+  constructor(scene: Phaser.Scene, worldHeight: number, offsetX = 0, offsetY = 0) {
     this.graphics = scene.add.graphics();
+    this.graphics.setPosition(offsetX, offsetY);
     this.worldHeight = worldHeight;
   }
 
@@ -84,10 +79,10 @@ export class PhaserRenderer {
         this.drawFloorTile(px, py, hasPlayer);
         break;
       case Tile.Goal1:
-        this.drawGoalTile(px, py, PLAYER_COLOR_1);
+        this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal1));
         break;
       case Tile.Goal2:
-        this.drawGoalTile(px, py, PLAYER_COLOR_2);
+        this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal2));
         break;
       default:
         this.graphics.fillStyle(FLOOR_COLOR, 1);
@@ -152,13 +147,10 @@ export class PhaserRenderer {
     const px = player.position.x * TILE_SIZE;
     const py = (this.worldHeight - 1 - player.position.y) * TILE_SIZE;
     if (player.hasBall) {
-      this.graphics.fillStyle(
-        player.stepsLeft <= 0 ? PLAYER_NO_STEPS_COLOR : PLAYER_BALL_COLOR,
-        PLAYER_HIGHLIGHT_ALPHA
-      );
+      this.graphics.fillStyle(player.stepsLeft <= 0 ? PLAYER_NO_STEPS_COLOR : PLAYER_BALL_COLOR, PLAYER_HIGHLIGHT_ALPHA);
       this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
-    const glyphColor = player.id === 1 ? 0x6aff6a : 0xe07bff;
+    const glyphColor = player.id === 1 ? PLAYER_1_COLOR : PLAYER_2_COLOR;
     const strokeWidth = TILE_SIZE * PLAYER_GLYPH_STROKE_RATIO;
     this.graphics.fillStyle(glyphColor, 1);
 
@@ -226,7 +218,7 @@ export class PhaserRenderer {
   private drawBall(x: number, y: number): void {
     const px = x * TILE_SIZE + TILE_SIZE / 2;
     const py = (this.worldHeight - 1 - y) * TILE_SIZE + TILE_SIZE / 2;
-    this.graphics.fillStyle(BALL_COLOR, 1);
+    this.graphics.fillStyle(PLAYER_BALL_COLOR, 1);
     this.graphics.fillCircle(px, py, TILE_SIZE * BALL_RADIUS_RATIO);
   }
 
@@ -247,5 +239,12 @@ export class PhaserRenderer {
         }
       }
     }
+  }
+
+  private getGoalColor(state: GameState, goalTile: Tile.Goal1 | Tile.Goal2): number {
+    if (!state.goalsSwapped) {
+      return goalTile === Tile.Goal1 ? PLAYER_1_COLOR : PLAYER_2_COLOR;
+    }
+    return goalTile === Tile.Goal1 ? PLAYER_2_COLOR : PLAYER_1_COLOR;
   }
 }

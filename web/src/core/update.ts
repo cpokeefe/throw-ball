@@ -199,8 +199,21 @@ function throwBall(state: GameState, playerId: 1 | 2, forcedDirection?: Directio
 function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
   const p1 = state.players[1];
   const p2 = state.players[2];
-  const p1Spawn = spawnInFrontOfGoal(state, Tile.Goal1, { x: 3, y: Math.floor(state.map.height / 2) }, 1);
-  let p2Spawn = spawnInFrontOfGoal(state, Tile.Goal2, { x: state.map.width - 4, y: Math.floor(state.map.height / 2) }, -1);
+  const goalsSwapped = !state.goalsSwapped;
+  const p1OwnGoal = goalTileForPlayer(state, 1, goalsSwapped);
+  const p2OwnGoal = goalTileForPlayer(state, 2, goalsSwapped);
+  const p1Spawn = spawnInFrontOfGoal(
+    state,
+    p1OwnGoal,
+    p1OwnGoal === Tile.Goal1 ? { x: 3, y: Math.floor(state.map.height / 2) } : { x: state.map.width - 4, y: Math.floor(state.map.height / 2) },
+    p1OwnGoal === Tile.Goal1 ? 1 : -1
+  );
+  let p2Spawn = spawnInFrontOfGoal(
+    state,
+    p2OwnGoal,
+    p2OwnGoal === Tile.Goal1 ? { x: 3, y: Math.floor(state.map.height / 2) } : { x: state.map.width - 4, y: Math.floor(state.map.height / 2) },
+    p2OwnGoal === Tile.Goal1 ? 1 : -1
+  );
   if (sameCoord(p1Spawn, p2Spawn)) {
     p2Spawn = findFarthestFloor(state, p2Spawn, p1Spawn);
   }
@@ -209,6 +222,7 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
   return {
     ...state,
     tick: state.tick + 1,
+    goalsSwapped,
     score: {
       p1: state.score.p1 + (scorerId === 1 ? 1 : 0),
       p2: state.score.p2 + (scorerId === 2 ? 1 : 0),
@@ -223,7 +237,7 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
       1: {
         ...p1,
         position: p1Spawn,
-        direction: "E",
+        direction: p1OwnGoal === Tile.Goal1 ? "E" : "W",
         hasBall: false,
         stepsLeft: STEPS_PER_POSSESSION,
         flyArmed: false,
@@ -233,7 +247,7 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
       2: {
         ...p2,
         position: p2Spawn,
-        direction: "W",
+        direction: p2OwnGoal === Tile.Goal1 ? "E" : "W",
         hasBall: false,
         stepsLeft: STEPS_PER_POSSESSION,
         flyArmed: false,
@@ -295,11 +309,12 @@ function applyCpuDecision(state: GameState): GameState {
 function targetForCpuWithBall(state: GameState): Coordinate {
   const cpu = state.players[2];
   const goalX = findGoalXForScorer(state, 2);
-  return { x: goalX + 2, y: cpu.position.y };
+  const attackGoal = opponentGoalTileForPlayer(state, 2);
+  return { x: goalX + (attackGoal === Tile.Goal1 ? 2 : -2), y: cpu.position.y };
 }
 
 function findGoalXForScorer(state: GameState, scorerId: 1 | 2): number {
-  const targetGoal = scorerId === 1 ? Tile.Goal2 : Tile.Goal1;
+  const targetGoal = opponentGoalTileForPlayer(state, scorerId);
   for (let x = 0; x < state.map.width; x += 1) {
     for (let y = 0; y < state.map.height; y += 1) {
       if (state.map.tiles[x][y] === targetGoal) {
@@ -528,7 +543,18 @@ function isOpponentGoalTile(state: GameState, playerId: 1 | 2, x: number, y: num
     return false;
   }
   const tile = state.map.tiles[x][y];
-  return playerId === 1 ? tile === Tile.Goal2 : tile === Tile.Goal1;
+  return tile === opponentGoalTileForPlayer(state, playerId);
+}
+
+function goalTileForPlayer(state: GameState, playerId: 1 | 2, swapped = state.goalsSwapped): Tile.Goal1 | Tile.Goal2 {
+  if (!swapped) {
+    return playerId === 1 ? Tile.Goal1 : Tile.Goal2;
+  }
+  return playerId === 1 ? Tile.Goal2 : Tile.Goal1;
+}
+
+function opponentGoalTileForPlayer(state: GameState, playerId: 1 | 2): Tile.Goal1 | Tile.Goal2 {
+  return goalTileForPlayer(state, playerId) === Tile.Goal1 ? Tile.Goal2 : Tile.Goal1;
 }
 
 function isInside(state: GameState, x: number, y: number): boolean {

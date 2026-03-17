@@ -1,8 +1,7 @@
 import { createRng } from "../random";
 import { Coordinate, GameMap, Tile } from "../types";
+import { MAP_HEIGHT, MAP_WIDTH } from "../../config/display";
 
-const DEFAULT_WIDTH = 80;
-const DEFAULT_HEIGHT = 30;
 const GRID_SIZE = 4;
 const ROOMS_MAX_NUMBER = 15;
 const AVERAGE_ROOM_WIDTH = 4;
@@ -20,7 +19,7 @@ const DIRECTION_STEP: Record<HallwayDirection, { dx: number; dy: number }> = {
   WEST: { dx: -1, dy: 0 },
 };
 
-export function generateMap(seed: number, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT): GameMap {
+export function generateMap(seed: number, width = MAP_WIDTH, height = MAP_HEIGHT): GameMap {
   const rng = createRng(seed);
   const tiles: Tile[][] = Array.from({ length: width }, () => Array.from({ length: height }, () => Tile.Wall));
   const rooms: Coordinate[] = [];

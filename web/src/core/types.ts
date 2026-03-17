@@ -44,6 +44,7 @@ export interface GameState {
   seed: number;
   rngState: number;
   mode: GameMode;
+  goalsSwapped: boolean;
   map: GameMap;
   players: Record<1 | 2, PlayerState>;
   ball: BallState;
