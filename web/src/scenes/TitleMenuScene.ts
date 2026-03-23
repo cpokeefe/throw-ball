@@ -9,6 +9,7 @@ import { FONT_DISPLAY, TITLE_MENU_SCENE } from "../config/display";
 import { getGameModeEntry, DEFAULT_GAME_MODE } from "../config/gameModes";
 import { GameMode } from "../core/types";
 import { bindColonCommands } from "../input/colonCommands";
+import { getSiteControls } from "../siteBridge";
 
 export class TitleMenuScene extends Phaser.Scene {
   constructor() {
@@ -89,8 +90,8 @@ export class TitleMenuScene extends Phaser.Scene {
     this.add
       .text(
         width / 2,
-        height * 0.55,
-        "New Game (N)\nLoad Game (L)\nReplay Game (R)\nSwitch Game Mode (X)\nQuit (Q)",
+        height * 0.6,
+        "New Game (N)\nLoad Game (L)\nSwitch Game Mode (X)\nMute (M)\nFull Screen (F)\nQuit (Q)",
         {
           fontFamily: FONT_DISPLAY,
           fontSize: `${TITLE_MENU_SCENE.menuFontPx}px`,
@@ -111,6 +112,7 @@ export class TitleMenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const startGame = (): void => {
+      this.registry.set("savedGameState", null);
       this.scene.start("game");
     };
     const loadGame = (): void => {
@@ -122,9 +124,17 @@ export class TitleMenuScene extends Phaser.Scene {
     const switchGameMode = (): void => {
       this.scene.start("gameModeSelect");
     };
+    const site = getSiteControls();
+    const toggleMute = (): void => { site?.toggleMute(); };
+    const quitGame = (): void => { site?.quitToWebsite(); };
+    const toggleFullscreen = (): void => { site?.toggleFullscreen(); };
+
     this.input.keyboard?.on("keydown-N", startGame);
     this.input.keyboard?.on("keydown-L", loadGame);
     this.input.keyboard?.on("keydown-X", switchGameMode);
+    this.input.keyboard?.on("keydown-M", toggleMute);
+    this.input.keyboard?.on("keydown-Q", quitGame);
+    this.input.keyboard?.on("keydown-F", toggleFullscreen);
 
     bindColonCommands(this, undefined, {
       exitToTitle: () => {},
@@ -134,6 +144,9 @@ export class TitleMenuScene extends Phaser.Scene {
       this.input.keyboard?.off("keydown-N", startGame);
       this.input.keyboard?.off("keydown-L", loadGame);
       this.input.keyboard?.off("keydown-X", switchGameMode);
+      this.input.keyboard?.off("keydown-M", toggleMute);
+      this.input.keyboard?.off("keydown-Q", quitGame);
+      this.input.keyboard?.off("keydown-F", toggleFullscreen);
     });
   }
 }

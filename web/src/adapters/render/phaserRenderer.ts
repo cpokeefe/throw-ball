@@ -6,6 +6,7 @@ import {
   BALL_COLOR,
   PLAYER_HIGHLIGHT_ALPHA,
   NO_STEPS_COLOR,
+  SCORE_TEXT_COLOR,
   WALL_BACKGROUND_COLOR,
   WALL_GLYPH_COLOR,
   player2Color,
@@ -84,14 +85,16 @@ export class PhaserRenderer {
         if (!p2Active && this.isPlayerOwnGoal(state, 1, Tile.Goal1)) {
           this.drawWallTile(px, py);
         } else {
-          this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal1));
+          const goalColor = p2Active ? this.getGoalColor(state, Tile.Goal1) : SCORE_TEXT_COLOR;
+          this.drawGoalTile(px, py, goalColor);
         }
         break;
       case Tile.Goal2:
         if (!p2Active && this.isPlayerOwnGoal(state, 1, Tile.Goal2)) {
           this.drawWallTile(px, py);
         } else {
-          this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal2));
+          const goalColor = p2Active ? this.getGoalColor(state, Tile.Goal2) : SCORE_TEXT_COLOR;
+          this.drawGoalTile(px, py, goalColor);
         }
         break;
       default:
