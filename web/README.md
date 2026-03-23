@@ -33,3 +33,10 @@ npm run dev
 - Player 2 action: `O` or `.`
 - Player 1 fly toggle: `Q` (consumed on next move)
 - Player 2 fly toggle: `U` (consumed on next move)
+
+Vim-style commands (press `:` then the second key; on a US layout `:` is `Shift` + `;`):
+
+- `:f` — toggle fullscreen
+- `:m` — mute / unmute music
+- `:e` — exit to the in-game title screen
+- `:q` — quit back to the HTML page (ends the Phaser session)

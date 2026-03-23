@@ -9,10 +9,12 @@ export function createInitialState(seed: number, mode: GameMode = "ONE_V_ONE"): 
     map.tiles, map.width, map.height, Tile.Goal1,
     { x: 3, y: Math.floor(map.height / 2) }, 1
   );
-  const p2Spawn = spawnInFrontOfGoal(
-    map.tiles, map.width, map.height, Tile.Goal2,
-    { x: map.width - 4, y: Math.floor(map.height / 2) }, -1
-  );
+  const p2Spawn = mode === "PRACTICE"
+    ? { x: -1, y: -1 }
+    : spawnInFrontOfGoal(
+        map.tiles, map.width, map.height, Tile.Goal2,
+        { x: map.width - 4, y: Math.floor(map.height / 2) }, -1
+      );
   const ballSpawn = findCenterFloor(map.tiles, map.width, map.height);
 
   return {

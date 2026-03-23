@@ -13,3 +13,6 @@ export const SIM_TICK_MS = {
   ball: 3,
   fly: 6,
 } as const;
+
+/** Milliseconds between CPU decisions. Lower = harder. */
+export const CPU_TICK_MS = 250;

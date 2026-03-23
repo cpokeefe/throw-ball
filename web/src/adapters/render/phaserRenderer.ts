@@ -3,12 +3,12 @@ import {
   FLOOR_COLOR,
   FLOOR_DOT_COLOR,
   PLAYER_1_COLOR,
-  PLAYER_2_COLOR,
   BALL_COLOR,
   PLAYER_HIGHLIGHT_ALPHA,
   NO_STEPS_COLOR,
   WALL_BACKGROUND_COLOR,
   WALL_GLYPH_COLOR,
+  player2Color,
 } from "../../config/colors";
 import { TILE_SIZE } from "../../config/display";
 import {
@@ -24,28 +24,33 @@ import {
   WALL_GLYPH_STROKE_RATIO,
   WALL_GLYPH_WIDTH_RATIO,
 } from "../../config/renderer";
+import { isPlayer2Active } from "../../config/gameModes";
 import { GameState, PlayerState, Tile } from "../../core/types";
 
 export class PhaserRenderer {
   private graphics: Phaser.GameObjects.Graphics;
   private worldHeight: number;
+  private p2Color: number;
 
-  constructor(scene: Phaser.Scene, worldHeight: number, offsetX = 0, offsetY = 0) {
+  constructor(scene: Phaser.Scene, worldHeight: number, offsetX = 0, offsetY = 0, isCpu = false) {
     this.graphics = scene.add.graphics();
     this.graphics.setPosition(offsetX, offsetY);
     this.worldHeight = worldHeight;
+    this.p2Color = player2Color(isCpu);
   }
 
   draw(state: GameState, elapsedMs = 0): void {
     this.graphics.clear();
     const p1 = state.players[1].position;
-    const p2 = state.players[2].position;
+    const p2Active = isPlayer2Active(state.mode);
     const blinkOn = Math.floor(elapsedMs / FLY_ARMED_BLINK_MS) % 2 === 0;
 
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
-        const hasPlayer = (p1.x === x && p1.y === y) || (p2.x === x && p2.y === y);
-        this.drawTile(state, x, y, state.map.tiles[x][y], hasPlayer);
+        const hasPlayer =
+          (p1.x === x && p1.y === y) ||
+          (p2Active && state.players[2].position.x === x && state.players[2].position.y === y);
+        this.drawTile(state, x, y, state.map.tiles[x][y], hasPlayer, p2Active);
       }
     }
 
@@ -54,10 +59,12 @@ export class PhaserRenderer {
       this.drawBall(state.ball.position.x, state.ball.position.y);
     }
     this.drawPlayer(state.players[1], blinkOn);
-    this.drawPlayer(state.players[2], blinkOn);
+    if (p2Active) {
+      this.drawPlayer(state.players[2], blinkOn);
+    }
   }
 
-  private drawTile(state: GameState, x: number, y: number, tile: Tile, hasPlayer: boolean): void {
+  private drawTile(state: GameState, x: number, y: number, tile: Tile, hasPlayer: boolean, p2Active: boolean): void {
     const px = x * TILE_SIZE;
     const py = (this.worldHeight - 1 - y) * TILE_SIZE;
 
@@ -74,10 +81,18 @@ export class PhaserRenderer {
         this.drawFloorTile(px, py, hasPlayer);
         break;
       case Tile.Goal1:
-        this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal1));
+        if (!p2Active && this.isPlayerOwnGoal(state, 1, Tile.Goal1)) {
+          this.drawWallTile(px, py);
+        } else {
+          this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal1));
+        }
         break;
       case Tile.Goal2:
-        this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal2));
+        if (!p2Active && this.isPlayerOwnGoal(state, 1, Tile.Goal2)) {
+          this.drawWallTile(px, py);
+        } else {
+          this.drawGoalTile(px, py, this.getGoalColor(state, Tile.Goal2));
+        }
         break;
       default:
         this.graphics.fillStyle(FLOOR_COLOR, 1);
@@ -142,7 +157,7 @@ export class PhaserRenderer {
       this.graphics.fillStyle(player.stepsLeft <= 0 ? NO_STEPS_COLOR : BALL_COLOR, PLAYER_HIGHLIGHT_ALPHA);
       this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
-    const glyphColor = player.id === 1 ? PLAYER_1_COLOR : PLAYER_2_COLOR;
+    const glyphColor = player.id === 1 ? PLAYER_1_COLOR : this.p2Color;
     const strokeWidth = TILE_SIZE * PLAYER_GLYPH_STROKE_RATIO;
     this.graphics.fillStyle(glyphColor, 1);
 
@@ -234,8 +249,13 @@ export class PhaserRenderer {
 
   private getGoalColor(state: GameState, goalTile: Tile.Goal1 | Tile.Goal2): number {
     if (!state.goalsSwapped) {
-      return goalTile === Tile.Goal1 ? PLAYER_1_COLOR : PLAYER_2_COLOR;
+      return goalTile === Tile.Goal1 ? PLAYER_1_COLOR : this.p2Color;
     }
-    return goalTile === Tile.Goal1 ? PLAYER_2_COLOR : PLAYER_1_COLOR;
+    return goalTile === Tile.Goal1 ? this.p2Color : PLAYER_1_COLOR;
+  }
+
+  private isPlayerOwnGoal(state: GameState, playerId: 1 | 2, goalTile: Tile.Goal1 | Tile.Goal2): boolean {
+    const p1Goal = state.goalsSwapped ? Tile.Goal2 : Tile.Goal1;
+    return playerId === 1 ? goalTile === p1Goal : goalTile !== p1Goal;
   }
 }

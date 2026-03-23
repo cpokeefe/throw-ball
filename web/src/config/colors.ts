@@ -5,6 +5,11 @@ export const GAME_BACKGROUND_COLOR = "#000000";
 
 export const PLAYER_1_COLOR = 0x00ff00;
 export const PLAYER_2_COLOR = 0xff00ff;
+export const CPU_COLOR = 0xc0c0c0;
+
+export function player2Color(isCpu: boolean): number {
+  return isCpu ? CPU_COLOR : PLAYER_2_COLOR;
+}
 
 export const FLOOR_COLOR = 0x000000;
 export const FLOOR_DOT_COLOR = 0x80c080;

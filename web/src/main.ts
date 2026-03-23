@@ -3,10 +3,12 @@ import { GAME_HEIGHT, GAME_WIDTH } from "./config/display";
 import { GAME_BACKGROUND_COLOR } from "./config/colors";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
+import { GameModeSelectScene } from "./scenes/GameModeSelectScene";
 import { TitleMenuScene } from "./scenes/TitleMenuScene";
 import { WinScene } from "./scenes/WinScene";
 
 import { IS_TEST_MODE } from "./config/env";
+import { setSiteControls } from "./siteBridge";
 
 const BASS_TRACK_FILENAME = "Ronald Jenkees - Try The Bass.wav";
 let bassTrack: HTMLAudioElement | null = null;
@@ -74,7 +76,7 @@ const config: Phaser.Types.Core.GameConfig = {
     fullscreenTarget: "app",
   },
   backgroundColor: GAME_BACKGROUND_COLOR,
-  scene: [BootScene, TitleMenuScene, GameScene, WinScene],
+  scene: [BootScene, TitleMenuScene, GameModeSelectScene, GameScene, WinScene],
 };
 
 const titleScreen = document.getElementById("title-screen");
@@ -130,6 +132,61 @@ const toggleFullscreen = (): void => {
   game.scale.startFullscreen();
 };
 
+const toggleMute = (): void => {
+  musicMuted = !musicMuted;
+  syncMusicMuted();
+};
+
+const quitToWebsite = (): void => {
+  if (game === null) {
+    return;
+  }
+  const g = game;
+
+  const destroyAndRestoreUi = (): void => {
+    if (game !== g) {
+      return;
+    }
+    game.destroy(true);
+    game = null;
+    if (bassTrack !== null) {
+      bassTrack.pause();
+      bassTrack = null;
+    }
+    if (titleScreen !== null) {
+      titleScreen.classList.remove("hidden");
+    }
+    if (IS_TEST_MODE && gameControls !== null) {
+      gameControls.classList.remove("hidden");
+    }
+    syncFullscreenState();
+    syncMusicMuted();
+  };
+
+  if (g.scale.isFullscreen) {
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    const onLeaveFullscreen = (): void => {
+      g.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, onLeaveFullscreen);
+      window.clearTimeout(fallbackTimer);
+      destroyAndRestoreUi();
+    };
+    fallbackTimer = window.setTimeout(() => {
+      g.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, onLeaveFullscreen);
+      destroyAndRestoreUi();
+    }, 750);
+    g.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, onLeaveFullscreen);
+    g.scale.stopFullscreen();
+  } else {
+    destroyAndRestoreUi();
+  }
+};
+
+setSiteControls({
+  toggleFullscreen,
+  toggleMute,
+  quitToWebsite,
+});
+
 const startGame = (): void => {
   if (game !== null) {
     return;
@@ -148,6 +205,10 @@ const startGame = (): void => {
   }
   if (gameControls !== null) {
     gameControls.classList.add("hidden");
+  }
+
+  if (!IS_TEST_MODE) {
+    game.scale.startFullscreen();
   }
 };
 
@@ -175,8 +236,7 @@ if (hudToggle instanceof HTMLButtonElement) {
 
 if (musicToggle instanceof HTMLButtonElement) {
   musicToggle.addEventListener("click", () => {
-    musicMuted = !musicMuted;
-    syncMusicMuted();
+    toggleMute();
   });
 }
 

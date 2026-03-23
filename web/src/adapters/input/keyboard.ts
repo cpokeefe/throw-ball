@@ -23,6 +23,8 @@ type KeyMap = {
 
 export class KeyboardAdapter {
   private keys: KeyMap;
+  private p1ActionSuppressed = false;
+  private p1ToggleFlySuppressed = false;
 
   constructor(scene: Phaser.Scene) {
     this.keys = scene.input.keyboard!.addKeys({
@@ -46,6 +48,16 @@ export class KeyboardAdapter {
     }) as KeyMap;
   }
 
+  /** Call when `e` was used as the second key of a `:e` command so gameplay does not also treat it as P1 action. */
+  suppressP1Action(): void {
+    this.p1ActionSuppressed = true;
+  }
+
+  /** Call when `q` was used as the second key of a `:q` command so gameplay does not also treat it as P1 toggle fly. */
+  suppressP1ToggleFly(): void {
+    this.p1ToggleFlySuppressed = true;
+  }
+
   pollCommands(_deltaMs: number): Command[] {
     const commands: Command[] = [];
 
@@ -61,10 +73,18 @@ export class KeyboardAdapter {
       commands.push({ type: "MOVE", playerId: 1, direction: dir });
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.e)) {
-      commands.push({ type: "ACTION", playerId: 1 });
+      if (this.p1ActionSuppressed) {
+        this.p1ActionSuppressed = false;
+      } else {
+        commands.push({ type: "ACTION", playerId: 1 });
+      }
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.q)) {
-      commands.push({ type: "TOGGLE_FLY", playerId: 1 });
+      if (this.p1ToggleFlySuppressed) {
+        this.p1ToggleFlySuppressed = false;
+      } else {
+        commands.push({ type: "TOGGLE_FLY", playerId: 1 });
+      }
     }
   }
 
