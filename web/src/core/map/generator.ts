@@ -1,6 +1,7 @@
-import { createRng } from "../random";
-import { Coordinate, GameMap, Tile } from "../types";
 import { MAP_HEIGHT, MAP_WIDTH } from "../../config/display";
+import { createRng } from "../random";
+import { isInside } from "../geometry";
+import { Coordinate, GameMap, Tile } from "../types";
 
 const GRID_SIZE = 4;
 const ROOMS_MAX_NUMBER = 15;
@@ -96,7 +97,7 @@ function generateRooms(
     const roomHeight = Math.floor(gaussianBounded(rng, AVERAGE_ROOM_HEIGHT, 1, 2, 8));
     for (let x = room.x - roomWidth; x < room.x + roomWidth; x += 1) {
       for (let y = room.y - roomHeight; y < room.y + roomHeight; y += 1) {
-        if (x >= 0 && y >= 0 && x < width && y < height) {
+        if (isInside(x, y, width, height)) {
           tiles[x][y] = Tile.Floor;
         }
       }
@@ -254,10 +255,6 @@ function placeGoalOnRoomEdge(
       }
     }
   }
-}
-
-function isInside(x: number, y: number, width: number, height: number): boolean {
-  return x >= 0 && x < width && y >= 0 && y < height;
 }
 
 function bernoulli(rng: ReturnType<typeof createRng>): boolean {

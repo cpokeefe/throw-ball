@@ -1,75 +1,79 @@
 import Phaser from "phaser";
 import { KeyboardAdapter } from "../adapters/input/keyboard";
 import { PhaserRenderer } from "../adapters/render/phaserRenderer";
+import * as HudColors from "../config/colors";
+import { toTextColor } from "../config/colors";
 import {
-  HUD_MUTED_BORDER_COLOR,
-  HUD_TEXT_WHITE_COLOR,
-  PLAYER_1_COLOR,
-  PLAYER_2_COLOR,
-  PLAYER_ACTIVE_STEPS_COLOR,
-  PLAYER_BALL_COLOR,
-  PLAYER_FLY_COLOR,
-  PLAYER_NO_STEPS_COLOR,
-} from "../config/colors";
-import {
+  BAR_CORNER_RADIUS,
+  BAR_DOT_RADIUS,
+  BAR_HEIGHT,
+  DEBUG_HUD_FONT_SIZE_PX,
   DEBUG_HUD_TEXT_MARGIN,
+  FIRST_TO_FONT_PX,
+  FONT_DISPLAY,
   GAME_HEIGHT,
-  MAP_OFFSET_X,
-  MAP_OFFSET_Y,
-  TILE_SIZE,
-  TOP_HUD_BAR_CENTER_GAP,
-  TOP_HUD_BAR_CORNER_RADIUS,
-  TOP_HUD_BAR_DOT_RADIUS,
-  TOP_HUD_BAR_HEIGHT,
-  TOP_HUD_BAR_WIDTH,
-  TOP_HUD_BAR_Y,
-  TOP_HUD_STAT_BOX_GAP,
-  TOP_HUD_STAT_BOX_HEIGHT,
-  TOP_HUD_STAT_BOX_SIDE_PADDING,
-  TOP_HUD_STAT_BOX_WIDTH,
-  TOP_HUD_STAT_BOX_Y,
+  HORIZONTAL_OFFSET,
+  TOP_OFFSET,
+  MIDDLE_MARGIN,
+  PLAYER_LABEL_FONT_PX,
+  PLAYER_SCORE_X,
+  SCORE_BAR_GAP,
+  SCORE_FONT_PX,
+  STATUS_BOX_BORDER_WIDTH,
+  STATUS_BOX_FONT_PX,
+  STATUS_BOX_GAP,
+  STATUS_BOX_TEXT_MARGIN,
+  TOP_MARGIN,
 } from "../config/display";
+import { GAME_RULES, SIM_TICK_MS } from "../config/rules";
 import { createInitialState } from "../core/init";
+import { IS_TEST_MODE } from "../config/env";
 import { GameState } from "../core/types";
 import { update } from "../core/update";
 
-const toTextColor = (color: number): string => `#${color.toString(16).padStart(6, "0")}`;
-const estimateMonospaceTextWidth = (text: string, fontSizePx: number): number => Math.ceil(text.length * fontSizePx * 0.62);
+type StatusHudCell = {
+  container: Phaser.GameObjects.Container;
+  box: Phaser.GameObjects.Graphics;
+  text: Phaser.GameObjects.Text;
+};
+
+function createStatusHudCell(
+  scene: Phaser.Scene,
+  boxY: number,
+  initialText: string,
+  style: Phaser.Types.GameObjects.Text.TextStyle
+): StatusHudCell {
+  const container = scene.add.container(0, boxY).setDepth(21).setScrollFactor(0);
+  const box = scene.add.graphics();
+  const text = scene.add.text(0, 0, initialText, style).setOrigin(0.5, 0);
+  container.add([box, text]);
+  return { container, box, text };
+}
 
 export class GameScene extends Phaser.Scene {
-  private static readonly FLY_STEP_MS = 6;
-  private static readonly BALL_STEP_MS = 3;
-  private static readonly SCORE_TO_WIN = 3;
   private state!: GameState;
   private keyboard!: KeyboardAdapter;
   private tileRenderer!: PhaserRenderer;
-  private topHudGraphics!: Phaser.GameObjects.Graphics;
-  private topHudDynamicGraphics!: Phaser.GameObjects.Graphics;
-  private topHudP1Score!: Phaser.GameObjects.Text;
-  private topHudP2Score!: Phaser.GameObjects.Text;
-  private topHudP1FlyArmed!: Phaser.GameObjects.Text;
-  private topHudP2FlyArmed!: Phaser.GameObjects.Text;
-  private topHudP1HasBall!: Phaser.GameObjects.Text;
-  private topHudP2HasBall!: Phaser.GameObjects.Text;
-  private topHudP1Steps!: Phaser.GameObjects.Text;
-  private topHudP2Steps!: Phaser.GameObjects.Text;
-  private topHudLeftBarX = 0;
-  private topHudRightBarX = 0;
-  private topHudBarY = 0;
-  private topHudBarWidth = 0;
-  private topHudBarHeight = 0;
-  private topHudP1FlyArmedBoxX = 0;
-  private topHudP1HasBallBoxX = 0;
-  private topHudP1StepsBoxX = 0;
-  private topHudP2FlyArmedBoxX = 0;
-  private topHudP2HasBallBoxX = 0;
-  private topHudP2StepsBoxX = 0;
-  private topHudStatBoxY = 0;
-  private topHudStatBoxHeight = 0;
-  private topHudFlyArmedBoxWidth = 0;
-  private topHudHasBallBoxWidth = 0;
-  private topHudStepsBoxWidth = 0;
-  private hudText!: Phaser.GameObjects.Text;
+  private hudGraphics!: Phaser.GameObjects.Graphics;
+  private hudDynamicGraphics!: Phaser.GameObjects.Graphics;
+  private hudP1Score!: Phaser.GameObjects.Text;
+  private hudP2Score!: Phaser.GameObjects.Text;
+  private hudP1PlayerTitle!: Phaser.GameObjects.Text;
+  private hudP2PlayerTitle!: Phaser.GameObjects.Text;
+  private hudP1FlyArmed!: StatusHudCell;
+  private hudP2FlyArmed!: StatusHudCell;
+  private hudP1HasBall!: StatusHudCell;
+  private hudP2HasBall!: StatusHudCell;
+  private hudP1Steps!: StatusHudCell;
+  private hudP2Steps!: StatusHudCell;
+  private hudLeftBarX = 0;
+  private hudRightBarX = 0;
+  private hudBarY = 0;
+  private hudP1BarWidth = 0;
+  private hudP2BarWidth = 0;
+  private hudBarHeight = 0;
+  private hudStatBoxY = 0;
+  private debugHudText!: Phaser.GameObjects.Text;
   private hudVisible = true;
   private flyAccumulatorMs = 0;
   private ballAccumulatorMs = 0;
@@ -90,22 +94,28 @@ export class GameScene extends Phaser.Scene {
       this.hudVisible = storedHudVisible;
     }
 
-    const seed = Date.now() % 2_147_483_647;
+    // const seed = IS_TEST_MODE ? 42 : Math.floor(Math.random() * 2_147_483_647);
+    const seed = Math.floor(Math.random() * 2_147_483_647);
     this.state = createInitialState(seed, "ONE_V_ONE");
     this.keyboard = new KeyboardAdapter(this);
-    this.tileRenderer = new PhaserRenderer(this, this.state.map.height, MAP_OFFSET_X, MAP_OFFSET_Y);
-    this.createTopHud();
+    this.tileRenderer = new PhaserRenderer(this, this.state.map.height, HORIZONTAL_OFFSET, TOP_OFFSET);
+    this.createHud();
 
-    this.hudText = this.add
-      .text(DEBUG_HUD_TEXT_MARGIN, GAME_HEIGHT - DEBUG_HUD_TEXT_MARGIN, "", {
-        fontFamily: "monospace",
-        fontSize: "10px",
-        color: `#${HUD_TEXT_WHITE_COLOR.toString(16).padStart(6, "0")}`,
-      })
+    this.debugHudText = this.add
+      .text(
+        DEBUG_HUD_TEXT_MARGIN,
+        GAME_HEIGHT - DEBUG_HUD_TEXT_MARGIN,
+        "",
+        {
+          fontFamily: FONT_DISPLAY,
+          fontSize: `${DEBUG_HUD_FONT_SIZE_PX}px`,
+          color: toTextColor(HudColors.SCORE_TEXT_COLOR),
+        }
+      )
       .setOrigin(0, 1)
       .setDepth(10)
       .setScrollFactor(0);
-    this.hudText.setVisible(this.hudVisible);
+    this.debugHudText.setVisible(this.hudVisible);
 
     this.registry.events.on("changedata-hudVisible", this.onHudVisibilityChanged, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -117,7 +127,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.tileRenderer.draw(this.state);
-    this.refreshHud();
+    this.refreshAllHud();
   }
 
   update(_time: number, delta: number): void {
@@ -128,15 +138,15 @@ export class GameScene extends Phaser.Scene {
     let next = this.state;
 
     this.ballAccumulatorMs += delta;
-    while (this.ballAccumulatorMs >= GameScene.BALL_STEP_MS) {
+    while (this.ballAccumulatorMs >= SIM_TICK_MS.ball) {
       next = update(next, { type: "ADVANCE_BALL" });
-      this.ballAccumulatorMs -= GameScene.BALL_STEP_MS;
+      this.ballAccumulatorMs -= SIM_TICK_MS.ball;
     }
 
     this.flyAccumulatorMs += delta;
-    while (this.flyAccumulatorMs >= GameScene.FLY_STEP_MS) {
+    while (this.flyAccumulatorMs >= SIM_TICK_MS.fly) {
       next = update(next, null);
-      this.flyAccumulatorMs -= GameScene.FLY_STEP_MS;
+      this.flyAccumulatorMs -= SIM_TICK_MS.fly;
     }
 
     const commands = this.keyboard.pollCommands(delta);
@@ -151,7 +161,7 @@ export class GameScene extends Phaser.Scene {
       this.isGameOver = true;
       this.scene.start("win", {
         winner: winningPlayer,
-        targetScore: GameScene.SCORE_TO_WIN,
+        targetScore: GAME_RULES.scoreToWin,
       });
       return;
     }
@@ -159,290 +169,266 @@ export class GameScene extends Phaser.Scene {
     if (next !== this.state) {
       this.state = next;
       this.tileRenderer.draw(this.state, _time);
-      this.refreshHud();
+      this.refreshAllHud();
     } else if (hasArmedFlyPlayer) {
       this.tileRenderer.draw(this.state, _time);
     }
   }
 
-  private refreshHud(): void {
-    this.refreshTopHud();
-    if (!this.hudVisible) {
-      return;
-    }
-    const p1 = this.state.players[1].position;
-    const p2 = this.state.players[2].position;
-    const holder = this.state.players[1].hasBall ? "P1" : this.state.players[2].hasBall ? "P2" : "none";
-    const p1Steps = this.state.players[1].stepsLeft;
-    const p2Steps = this.state.players[2].stepsLeft;
-    const p1Fly = this.state.players[1].flyArmed ? "armed" : "off";
-    const p2Fly = this.state.players[2].flyArmed ? "armed" : "off";
-    const p1Flying = this.state.players[1].isFlying ? " yes" : " no";
-    const p2Flying = this.state.players[2].isFlying ? " yes" : " no";
-    const ballFlying = this.state.ball.inFlight ? "yes" : "no";
-    this.hudText.setText(
-      `Seed ${this.state.seed} | Tick ${this.state.tick}\n` +
-        `P1 location: (${p1.x}, ${p1.y}) flying: ${p1Flying} | P2 location: (${p2.x}, ${p2.y}) flying:${p2Flying} | Ball: ${holder} flying: ${ballFlying}\n` +
-        `P1 WASD move, Q fly, E action | P2 IJKL/Arrows move, U fly, O or . action`
-    );
+  private refreshAllHud(): void {
+    this.refreshHud();
+    this.refreshDebugHud();
   }
 
-  private createTopHud(): void {
-    const statusFontSizePx = 15;
-    const statusTextInsetY = 4;
-    const statusHorizontalPadding = 4;
-    const scoreSideGap = 10;
+  private createHud(): void {
     const width = this.scale.width;
     const centerX = width / 2;
-    const barY = TOP_HUD_BAR_Y;
-    const barWidth = TOP_HUD_BAR_WIDTH;
-    const barHeight = TOP_HUD_BAR_HEIGHT;
-    const scoreRowY = barY + barHeight / 2;
-    const leftBarX = centerX - barWidth - TOP_HUD_BAR_CENTER_GAP;
-    const rightBarX = centerX + TOP_HUD_BAR_CENTER_GAP;
-    const boxY = TOP_HUD_STAT_BOX_Y;
-    const flyArmedBoxW = estimateMonospaceTextWidth("Fly Armed", statusFontSizePx) + statusHorizontalPadding * 2;
-    const hasBallBoxW = estimateMonospaceTextWidth("Has Ball", statusFontSizePx) + statusHorizontalPadding * 2;
-    const stepsBoxW = estimateMonospaceTextWidth("Steps Left: 99", statusFontSizePx) + statusHorizontalPadding * 2;
-    const statBoxH = TOP_HUD_STAT_BOX_HEIGHT;
-    const statGap = TOP_HUD_STAT_BOX_GAP;
-    const p1FlyArmedBoxX = TOP_HUD_STAT_BOX_SIDE_PADDING;
-    const p1HasBallBoxX = p1FlyArmedBoxX + flyArmedBoxW + statGap;
-    const p1StepsBoxX = p1HasBallBoxX + hasBallBoxW + statGap;
-    const p2StepsBoxX = width - TOP_HUD_STAT_BOX_SIDE_PADDING - stepsBoxW;
-    const p2HasBallBoxX = p2StepsBoxX - hasBallBoxW - statGap;
-    const p2FlyArmedBoxX = p2HasBallBoxX - flyArmedBoxW - statGap;
-
-    this.topHudLeftBarX = leftBarX;
-    this.topHudRightBarX = rightBarX;
-    this.topHudBarY = barY;
-    this.topHudBarWidth = barWidth;
-    this.topHudBarHeight = barHeight;
-    this.topHudP1FlyArmedBoxX = p1FlyArmedBoxX;
-    this.topHudP1HasBallBoxX = p1HasBallBoxX;
-    this.topHudP1StepsBoxX = p1StepsBoxX;
-    this.topHudP2FlyArmedBoxX = p2FlyArmedBoxX;
-    this.topHudP2HasBallBoxX = p2HasBallBoxX;
-    this.topHudP2StepsBoxX = p2StepsBoxX;
-    this.topHudStatBoxY = boxY;
-    this.topHudStatBoxHeight = statBoxH;
-    this.topHudFlyArmedBoxWidth = flyArmedBoxW;
-    this.topHudHasBallBoxWidth = hasBallBoxW;
-    this.topHudStepsBoxWidth = stepsBoxW;
-
-    this.topHudGraphics = this.add.graphics().setDepth(20).setScrollFactor(0);
-    this.topHudGraphics.fillStyle(0xe8e8e8, 1);
-    this.topHudGraphics.fillRoundedRect(leftBarX, barY, barWidth, barHeight, TOP_HUD_BAR_CORNER_RADIUS);
-    this.topHudGraphics.fillRoundedRect(rightBarX, barY, barWidth, barHeight, TOP_HUD_BAR_CORNER_RADIUS);
-    this.topHudGraphics.fillStyle(PLAYER_1_COLOR, 1);
-    this.topHudGraphics.fillCircle(leftBarX + TOP_HUD_BAR_CORNER_RADIUS, barY + barHeight / 2, TOP_HUD_BAR_DOT_RADIUS);
-    this.topHudGraphics.fillStyle(PLAYER_2_COLOR, 1);
-    this.topHudGraphics.fillCircle(
-      rightBarX + barWidth - TOP_HUD_BAR_CORNER_RADIUS,
-      barY + barHeight / 2,
-      TOP_HUD_BAR_DOT_RADIUS
-    );
-    this.topHudGraphics.lineStyle(1, HUD_MUTED_BORDER_COLOR, 1);
-    this.topHudGraphics.strokeRect(p1FlyArmedBoxX, boxY, flyArmedBoxW, statBoxH);
-    this.topHudGraphics.strokeRect(p1HasBallBoxX, boxY, hasBallBoxW, statBoxH);
-    this.topHudGraphics.strokeRect(p1StepsBoxX, boxY, stepsBoxW, statBoxH);
-    this.topHudGraphics.strokeRect(p2FlyArmedBoxX, boxY, flyArmedBoxW, statBoxH);
-    this.topHudGraphics.strokeRect(p2HasBallBoxX, boxY, hasBallBoxW, statBoxH);
-    this.topHudGraphics.strokeRect(p2StepsBoxX, boxY, stepsBoxW, statBoxH);
-    this.topHudDynamicGraphics = this.add.graphics().setDepth(20.5).setScrollFactor(0);
-
-    this.add
-      .text(200, 16, "Player 1", { fontFamily: "monospace", fontSize: "34px", color: toTextColor(PLAYER_1_COLOR) })
-      .setOrigin(0.5, 0);
-    this.add
-      .text(width - 200, 16, "Player 2", {
-        fontFamily: "monospace",
-        fontSize: "34px",
-        color: toTextColor(PLAYER_2_COLOR),
+    const barY = TOP_MARGIN + PLAYER_LABEL_FONT_PX + MIDDLE_MARGIN / 2 - BAR_HEIGHT / 2;
+    const firstToY = barY / 2;
+    const scoreRowY = barY + BAR_HEIGHT / 2;
+    const targetScoreLabel = `${GAME_RULES.scoreToWin}!`;
+    const targetScoreText = this.add
+      .text(centerX, scoreRowY, targetScoreLabel, {
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${SCORE_FONT_PX}px`,
+        color: toTextColor(HudColors.SCORE_TEXT_COLOR),
       })
-      .setOrigin(0.5, 0);
-    this.add
-      .text(centerX, 8, "First to", {
-        fontFamily: "monospace",
-        fontSize: "16px",
-        color: `#${HUD_TEXT_WHITE_COLOR.toString(16).padStart(6, "0")}`,
-      })
-      .setOrigin(0.5, 0)
-      // .setDepth(21)
-      // .setScrollFactor(0);
-    this.add
-      .text(centerX, 24, `${GameScene.SCORE_TO_WIN}!`, {
-        fontFamily: "monospace",
-        fontSize: "30px",
-        color: `#${HUD_TEXT_WHITE_COLOR.toString(16).padStart(6, "0")}`,
-      })
-      .setPosition(centerX, scoreRowY)
       .setOrigin(0.5, 0.5)
-      // .setDepth(21)
-      // .setScrollFactor(0);
+      .setDepth(21)
+      .setScrollFactor(0);
+    const targetHalfW = targetScoreText.width / 2;
+    const targetLeftX = centerX - targetHalfW;
+    const targetRightX = centerX + targetHalfW;
+    const p1ScoreRightX = PLAYER_SCORE_X;
+    const p2ScoreLeftX = width - PLAYER_SCORE_X;
+    const leftBarX = p1ScoreRightX + SCORE_BAR_GAP;
+    const leftBarWidth = Math.max(0, targetLeftX - SCORE_BAR_GAP - leftBarX);
+    const rightBarX = targetRightX + SCORE_BAR_GAP;
+    const rightBarWidth = Math.max(0, p2ScoreLeftX - SCORE_BAR_GAP - rightBarX);
+    const boxY = TOP_MARGIN + PLAYER_LABEL_FONT_PX + MIDDLE_MARGIN;
 
-    this.topHudP1Score = this.add
-      .text(leftBarX - scoreSideGap, scoreRowY, "0", {
-        fontFamily: "monospace",
-        fontSize: "30px",
-        color: `#${HUD_TEXT_WHITE_COLOR.toString(16).padStart(6, "0")}`,
-      })
-      .setOrigin(1, 0.5)
-      .setDepth(21)
-      .setScrollFactor(0);
-    this.topHudP2Score = this.add
-      .text(rightBarX + barWidth + scoreSideGap, scoreRowY, "0", {
-        fontFamily: "monospace",
-        fontSize: "30px",
-        color: `#${HUD_TEXT_WHITE_COLOR.toString(16).padStart(6, "0")}`,
-      })
-      .setOrigin(0, 0.5)
-      .setDepth(21)
-      .setScrollFactor(0);
+    this.hudLeftBarX = leftBarX;
+    this.hudRightBarX = rightBarX;
+    this.hudBarY = barY;
+    this.hudP1BarWidth = leftBarWidth;
+    this.hudP2BarWidth = rightBarWidth;
+    this.hudBarHeight = BAR_HEIGHT;
+    this.hudStatBoxY = boxY;
 
-    this.topHudP1FlyArmed = this.add
-      .text(p1FlyArmedBoxX + flyArmedBoxW / 2, boxY + statusTextInsetY, "Fly Armed", {
-        fontFamily: "monospace",
-        fontSize: `${statusFontSizePx}px`,
-        color: toTextColor(PLAYER_ACTIVE_STEPS_COLOR),
+    this.hudGraphics = this.add.graphics().setDepth(20).setScrollFactor(0);
+    this.hudGraphics.fillStyle(HudColors.BAR_BACKGROUND_COLOR, 1);
+    this.hudGraphics.fillRoundedRect(leftBarX, barY, leftBarWidth, BAR_HEIGHT, BAR_CORNER_RADIUS);
+    this.hudGraphics.fillRoundedRect(rightBarX, barY, rightBarWidth, BAR_HEIGHT, BAR_CORNER_RADIUS);
+    this.hudGraphics.fillStyle(HudColors.PLAYER_1_COLOR, 1);
+    this.hudGraphics.fillCircle(
+      leftBarX + BAR_CORNER_RADIUS,
+      barY + BAR_HEIGHT / 2,
+      BAR_DOT_RADIUS
+    );
+    this.hudGraphics.fillStyle(HudColors.PLAYER_2_COLOR, 1);
+    this.hudGraphics.fillCircle(
+      rightBarX + rightBarWidth - BAR_CORNER_RADIUS,
+      barY + BAR_HEIGHT / 2,
+      BAR_DOT_RADIUS
+    );
+    this.hudDynamicGraphics = this.add.graphics().setDepth(20.5).setScrollFactor(0);
+
+    this.hudP1PlayerTitle = this.add
+      .text(0, TOP_MARGIN, "Player 1", {
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${PLAYER_LABEL_FONT_PX}px`,
+        color: toTextColor(HudColors.PLAYER_1_COLOR),
       })
       .setOrigin(0.5, 0)
       .setDepth(21)
       .setScrollFactor(0);
-    this.topHudP1HasBall = this.add
-      .text(p1HasBallBoxX + hasBallBoxW / 2, boxY + statusTextInsetY, "Has Ball", {
-        fontFamily: "monospace",
-        fontSize: `${statusFontSizePx}px`,
-        color: toTextColor(PLAYER_ACTIVE_STEPS_COLOR),
+    this.hudP2PlayerTitle = this.add
+      .text(0, TOP_MARGIN, "Player 2", {
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${PLAYER_LABEL_FONT_PX}px`,
+        color: toTextColor(HudColors.PLAYER_2_COLOR),
       })
       .setOrigin(0.5, 0)
       .setDepth(21)
       .setScrollFactor(0);
-    this.topHudP1Steps = this.add
-      .text(p1StepsBoxX + stepsBoxW / 2, boxY + statusTextInsetY, "Steps Left: 0", {
-        fontFamily: "monospace",
-        fontSize: `${statusFontSizePx}px`,
-        color: toTextColor(PLAYER_ACTIVE_STEPS_COLOR),
+    this.add
+      .text(centerX, firstToY, "First to", {
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${FIRST_TO_FONT_PX}px`,
+        color: toTextColor(HudColors.SCORE_TEXT_COLOR),
       })
-      .setOrigin(0.5, 0)
-      .setDepth(21)
-      .setScrollFactor(0);
-    this.topHudP2FlyArmed = this.add
-      .text(p2FlyArmedBoxX + flyArmedBoxW / 2, boxY + statusTextInsetY, "Fly Armed", {
-        fontFamily: "monospace",
-        fontSize: `${statusFontSizePx}px`,
-        color: toTextColor(PLAYER_ACTIVE_STEPS_COLOR),
+      .setOrigin(0.5, 0.42);
+
+    this.hudP1Score = this.add
+      .text(p1ScoreRightX, scoreRowY, "0", {
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${SCORE_FONT_PX}px`,
+        color: toTextColor(HudColors.SCORE_TEXT_COLOR),
       })
-      .setOrigin(0.5, 0)
-      .setDepth(21)
-      .setScrollFactor(0);
-    this.topHudP2HasBall = this.add
-      .text(p2HasBallBoxX + hasBallBoxW / 2, boxY + statusTextInsetY, "Has Ball", {
-        fontFamily: "monospace",
-        fontSize: `${statusFontSizePx}px`,
-        color: toTextColor(PLAYER_ACTIVE_STEPS_COLOR),
+      .setOrigin(1, 0.5);
+    this.hudP2Score = this.add
+      .text(p2ScoreLeftX, scoreRowY, "0", {
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${SCORE_FONT_PX}px`,
+        color: toTextColor(HudColors.SCORE_TEXT_COLOR),
       })
-      .setOrigin(0.5, 0)
-      .setDepth(21)
-      .setScrollFactor(0);
-    this.topHudP2Steps = this.add
-      .text(p2StepsBoxX + stepsBoxW / 2, boxY + statusTextInsetY, "Steps Left: 0", {
-        fontFamily: "monospace",
-        fontSize: `${statusFontSizePx}px`,
-        color: toTextColor(PLAYER_ACTIVE_STEPS_COLOR),
-      })
-      .setOrigin(0.5, 0)
-      .setDepth(21)
-      .setScrollFactor(0);
+      .setOrigin(0, 0.5);
+
+    const statusStyle = {
+      fontFamily: FONT_DISPLAY,
+      fontSize: `${STATUS_BOX_FONT_PX}px`,
+      color: toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR),
+    };
+
+    const p1StepsLabel = `Steps Left: ${this.state.players[1].stepsLeft}`;
+    const p2StepsLabel = `Steps Left: ${this.state.players[2].stepsLeft}`;
+
+    this.hudP1FlyArmed = createStatusHudCell(this, boxY, "Fly Armed", statusStyle);
+    this.hudP1HasBall = createStatusHudCell(this, boxY, "Has Ball", statusStyle);
+    this.hudP1Steps = createStatusHudCell(this, boxY, p1StepsLabel, statusStyle);
+    this.hudP2FlyArmed = createStatusHudCell(this, boxY, "Fly Armed", statusStyle);
+    this.hudP2HasBall = createStatusHudCell(this, boxY, "Has Ball", statusStyle);
+    this.hudP2Steps = createStatusHudCell(this, boxY, p2StepsLabel, statusStyle);
   }
 
-  private refreshTopHud(): void {
-    const p1ScoreProgress = Math.min(1, this.state.score.p1 / GameScene.SCORE_TO_WIN);
-    const p2ScoreProgress = Math.min(1, this.state.score.p2 / GameScene.SCORE_TO_WIN);
+  private refreshHud(): void {
+    const p1ScoreProgress = Math.min(1, this.state.score.p1 / GAME_RULES.scoreToWin);
+    const p2ScoreProgress = Math.min(1, this.state.score.p2 / GAME_RULES.scoreToWin);
     const p1FlyArmed = this.state.players[1].flyArmed;
     const p2FlyArmed = this.state.players[2].flyArmed;
     const p1HasBall = this.state.players[1].hasBall;
     const p2HasBall = this.state.players[2].hasBall;
     const p1NoStepsLeft = this.state.players[1].stepsLeft <= 0;
     const p2NoStepsLeft = this.state.players[2].stepsLeft <= 0;
-    const progressInset = TOP_HUD_BAR_CORNER_RADIUS - TOP_HUD_BAR_DOT_RADIUS;
-    const progressY = this.topHudBarY + progressInset;
-    const progressHeight = this.topHudBarHeight - progressInset * 2;
-    const progressMaxWidth = this.topHudBarWidth - progressInset * 2;
-    const progressCornerRadius = Math.max(0, TOP_HUD_BAR_CORNER_RADIUS - progressInset);
+    const progressInset = BAR_CORNER_RADIUS - BAR_DOT_RADIUS;
+    const progressY = this.hudBarY + progressInset;
+    const progressHeight = this.hudBarHeight - progressInset * 2;
+    const p1ProgressMaxWidth = this.hudP1BarWidth - progressInset * 2;
+    const p2ProgressMaxWidth = this.hudP2BarWidth - progressInset * 2;
+    const progressCornerRadius = Math.max(0, BAR_CORNER_RADIUS - progressInset);
 
-    this.topHudDynamicGraphics.clear();
+    this.hudDynamicGraphics.clear();
     if (p1ScoreProgress > 0) {
-      const width = progressMaxWidth * p1ScoreProgress;
-      this.topHudDynamicGraphics.fillStyle(PLAYER_1_COLOR, 1);
-      this.topHudDynamicGraphics.fillRoundedRect(
-        this.topHudLeftBarX + progressInset,
+      const w = p1ProgressMaxWidth * p1ScoreProgress;
+      this.hudDynamicGraphics.fillStyle(HudColors.PLAYER_1_COLOR, 1);
+      this.hudDynamicGraphics.fillRoundedRect(
+        this.hudLeftBarX + progressInset,
         progressY,
-        width,
+        w,
         progressHeight,
         progressCornerRadius
       );
     }
     if (p2ScoreProgress > 0) {
-      const width = progressMaxWidth * p2ScoreProgress;
-      this.topHudDynamicGraphics.fillStyle(PLAYER_2_COLOR, 1);
-      this.topHudDynamicGraphics.fillRoundedRect(
-        this.topHudRightBarX + progressInset + progressMaxWidth - width,
+      const w = p2ProgressMaxWidth * p2ScoreProgress;
+      this.hudDynamicGraphics.fillStyle(HudColors.PLAYER_2_COLOR, 1);
+      this.hudDynamicGraphics.fillRoundedRect(
+        this.hudRightBarX + progressInset + p2ProgressMaxWidth - w,
         progressY,
-        width,
+        w,
         progressHeight,
         progressCornerRadius
       );
     }
 
-    this.drawStatusBox(
-      this.topHudP1FlyArmedBoxX,
-      this.topHudFlyArmedBoxWidth,
-      p1FlyArmed ? PLAYER_FLY_COLOR : HUD_MUTED_BORDER_COLOR
+    this.hudP1Score.setText(String(this.state.score.p1));
+    this.hudP2Score.setText(String(this.state.score.p2));
+
+    const p1ScoreLeftX = PLAYER_SCORE_X - this.hudP1Score.width;
+    const hudWidth = this.scale.width;
+    const p2ScoreRightX = hudWidth - PLAYER_SCORE_X + this.hudP2Score.width;
+    this.hudP1PlayerTitle.setX(p1ScoreLeftX / 2);
+    this.hudP2PlayerTitle.setX((p2ScoreRightX + hudWidth) / 2);
+
+    this.hudP1FlyArmed.text.setColor(
+      toTextColor(p1FlyArmed ? HudColors.FLY_TEXT_COLOR : HudColors.PLAYER_BASE_TEXT_COLOR)
     );
-    this.drawStatusBox(
-      this.topHudP1HasBallBoxX,
-      this.topHudHasBallBoxWidth,
-      p1HasBall ? PLAYER_BALL_COLOR : HUD_MUTED_BORDER_COLOR
+    this.hudP2FlyArmed.text.setColor(
+      toTextColor(p2FlyArmed ? HudColors.FLY_TEXT_COLOR : HudColors.PLAYER_BASE_TEXT_COLOR)
     );
-    this.drawStatusBox(
-      this.topHudP2HasBallBoxX,
-      this.topHudHasBallBoxWidth,
-      p2HasBall ? PLAYER_BALL_COLOR : HUD_MUTED_BORDER_COLOR
+    this.hudP1HasBall.text.setColor(
+      toTextColor(p1HasBall ? HudColors.BALL_COLOR : HudColors.PLAYER_BASE_TEXT_COLOR)
     );
-    this.drawStatusBox(
-      this.topHudP2FlyArmedBoxX,
-      this.topHudFlyArmedBoxWidth,
-      p2FlyArmed ? PLAYER_FLY_COLOR : HUD_MUTED_BORDER_COLOR
+    this.hudP2HasBall.text.setColor(
+      toTextColor(p2HasBall ? HudColors.BALL_COLOR : HudColors.PLAYER_BASE_TEXT_COLOR)
     );
-    this.drawStatusBox(
-      this.topHudP1StepsBoxX,
-      this.topHudStepsBoxWidth,
-      p1NoStepsLeft ? PLAYER_NO_STEPS_COLOR : HUD_MUTED_BORDER_COLOR
+    this.hudP1Steps.text.setText(`Steps Left: ${this.state.players[1].stepsLeft}`);
+    this.hudP2Steps.text.setText(`Steps Left: ${this.state.players[2].stepsLeft}`);
+    this.hudP1Steps.text.setColor(
+      toTextColor(p1NoStepsLeft ? HudColors.NO_STEPS_COLOR : HudColors.PLAYER_BASE_TEXT_COLOR)
     );
-    this.drawStatusBox(
-      this.topHudP2StepsBoxX,
-      this.topHudStepsBoxWidth,
-      p2NoStepsLeft ? PLAYER_NO_STEPS_COLOR : HUD_MUTED_BORDER_COLOR
+    this.hudP2Steps.text.setColor(
+      toTextColor(p2NoStepsLeft ? HudColors.NO_STEPS_COLOR : HudColors.PLAYER_BASE_TEXT_COLOR)
     );
 
-    this.topHudP1Score.setText(String(this.state.score.p1));
-    this.topHudP2Score.setText(String(this.state.score.p2));
-    this.topHudP1FlyArmed.setColor(toTextColor(p1FlyArmed ? PLAYER_FLY_COLOR : PLAYER_ACTIVE_STEPS_COLOR));
-    this.topHudP2FlyArmed.setColor(toTextColor(p2FlyArmed ? PLAYER_FLY_COLOR : PLAYER_ACTIVE_STEPS_COLOR));
-    this.topHudP1HasBall.setColor(toTextColor(p1HasBall ? PLAYER_BALL_COLOR : PLAYER_ACTIVE_STEPS_COLOR));
-    this.topHudP2HasBall.setColor(toTextColor(p2HasBall ? PLAYER_BALL_COLOR : PLAYER_ACTIVE_STEPS_COLOR));
-    this.topHudP1Steps.setText(`Steps Left: ${this.state.players[1].stepsLeft}`);
-    this.topHudP2Steps.setText(`Steps Left: ${this.state.players[2].stepsLeft}`);
-    this.topHudP1Steps.setColor(toTextColor(p1NoStepsLeft ? PLAYER_NO_STEPS_COLOR : PLAYER_ACTIVE_STEPS_COLOR));
-    this.topHudP2Steps.setColor(toTextColor(p2NoStepsLeft ? PLAYER_NO_STEPS_COLOR : PLAYER_ACTIVE_STEPS_COLOR));
+    const pad = STATUS_BOX_TEXT_MARGIN;
+    const gap = STATUS_BOX_GAP;
+
+    const p1W =
+      this.hudP1FlyArmed.text.width +
+      2 * pad +
+      gap +
+      this.hudP1HasBall.text.width +
+      2 * pad +
+      gap +
+      this.hudP1Steps.text.width +
+      2 * pad;
+    let p1x = (p1ScoreLeftX - p1W) / 2;
+    this.drawStatusCell(
+      this.hudP1FlyArmed,
+      p1x,
+      p1FlyArmed ? HudColors.FLY_TEXT_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
+    );
+    p1x += this.hudP1FlyArmed.text.width + 2 * pad + gap;
+    this.drawStatusCell(
+      this.hudP1HasBall,
+      p1x,
+      p1HasBall ? HudColors.BALL_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
+    );
+    p1x += this.hudP1HasBall.text.width + 2 * pad + gap;
+    this.drawStatusCell(
+      this.hudP1Steps,
+      p1x,
+      p1NoStepsLeft ? HudColors.NO_STEPS_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
+    );
+
+    const p2W =
+      this.hudP2FlyArmed.text.width +
+      2 * pad +
+      gap +
+      this.hudP2HasBall.text.width +
+      2 * pad +
+      gap +
+      this.hudP2Steps.text.width +
+      2 * pad;
+    let p2x = (p2ScoreRightX + hudWidth - p2W) / 2;
+    this.drawStatusCell(
+      this.hudP2FlyArmed,
+      p2x,
+      p2FlyArmed ? HudColors.FLY_TEXT_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
+    );
+    p2x += this.hudP2FlyArmed.text.width + 2 * pad + gap;
+    this.drawStatusCell(
+      this.hudP2HasBall,
+      p2x,
+      p2HasBall ? HudColors.BALL_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
+    );
+    p2x += this.hudP2HasBall.text.width + 2 * pad + gap;
+    this.drawStatusCell(
+      this.hudP2Steps,
+      p2x,
+      p2NoStepsLeft ? HudColors.NO_STEPS_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
+    );
   }
 
-  private drawStatusBox(x: number, width: number, borderColor: number): void {
-    this.topHudDynamicGraphics.fillStyle(0x000000, 0.35);
-    this.topHudDynamicGraphics.fillRect(x, this.topHudStatBoxY, width, this.topHudStatBoxHeight);
-    this.topHudDynamicGraphics.lineStyle(2, borderColor, 1);
-    this.topHudDynamicGraphics.strokeRect(x, this.topHudStatBoxY, width, this.topHudStatBoxHeight);
+  private drawStatusCell(cell: StatusHudCell, x: number, borderColor: number): void {
+    const pad = STATUS_BOX_TEXT_MARGIN;
+    const w = cell.text.width + 2 * pad;
+    const h = cell.text.height + 2 * pad;
+    cell.container.setPosition(x, this.hudStatBoxY);
+    cell.text.setPosition(w / 2, pad);
+    cell.box.lineStyle(STATUS_BOX_BORDER_WIDTH, borderColor);
+    cell.box.strokeRect(0, 0, w, h);
   }
 
   private onHudVisibilityChanged(_parent: Phaser.Data.DataManager, value: unknown): void {
@@ -450,19 +436,36 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.hudVisible = value;
-    this.hudText.setVisible(value);
+    this.debugHudText.setVisible(value);
     if (value) {
-      this.refreshHud();
+      this.refreshAllHud();
     }
   }
 
   private getWinningPlayer(state: GameState): 1 | 2 | null {
-    if (state.score.p1 >= GameScene.SCORE_TO_WIN) {
+    if (state.score.p1 >= GAME_RULES.scoreToWin) {
       return 1;
     }
-    if (state.score.p2 >= GameScene.SCORE_TO_WIN) {
+    if (state.score.p2 >= GAME_RULES.scoreToWin) {
       return 2;
     }
     return null;
+  }
+
+  private refreshDebugHud(): void {
+    if (!this.hudVisible) {
+      return;
+    }
+    const p1 = this.state.players[1].position;
+    const p2 = this.state.players[2].position;
+    const holder = this.state.players[1].hasBall ? "P1" : this.state.players[2].hasBall ? "P2" : "none";
+    const p1Flying = this.state.players[1].isFlying ? " yes" : " no";
+    const p2Flying = this.state.players[2].isFlying ? " yes" : " no";
+    const ballFlying = this.state.ball.inFlight ? "yes" : "no";
+    this.debugHudText.setText(
+      `Seed ${this.state.seed} | Tick ${this.state.tick}\n` +
+        `P1 location: (${p1.x}, ${p1.y}) flying: ${p1Flying} | P2 location: (${p2.x}, ${p2.y}) flying:${p2Flying} | Ball: ${holder} flying: ${ballFlying}\n` +
+        `P1 WASD move, Q fly, E action | P2 IJKL/Arrows move, U fly, O or . action`
+    );
   }
 }

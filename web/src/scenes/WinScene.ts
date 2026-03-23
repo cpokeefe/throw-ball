@@ -1,4 +1,7 @@
 import Phaser from "phaser";
+import { toTextColor, SCORE_TEXT_COLOR } from "../config/colors";
+import { FONT_DISPLAY } from "../config/display";
+import { WIN_SCENE } from "../config/display";
 
 type WinSceneData = {
   winner?: number;
@@ -17,13 +20,13 @@ export class WinScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    this.cameras.main.setBackgroundColor("#000000");
+    this.cameras.main.setBackgroundColor(toTextColor(0x000000));
 
     this.add
       .text(width * 0.5, height * 0.5, `Player ${this.winner} wins!`, {
-        fontFamily: "monaco",
-        fontSize: "58px",
-        color: "#ffffff",
+        fontFamily: FONT_DISPLAY,
+        fontSize: `${WIN_SCENE.messageFontPx}px`,
+        color: toTextColor(SCORE_TEXT_COLOR),
       })
       .setOrigin(0.5);
 
@@ -31,7 +34,7 @@ export class WinScene extends Phaser.Scene {
       this.scene.start("titleMenu");
     };
 
-    const returnTimer = this.time.delayedCall(2500, returnToTitle);
+    const returnTimer = this.time.delayedCall(WIN_SCENE.returnDelayMs, returnToTitle);
     this.input.keyboard?.once("keydown", returnToTitle);
     this.input.once("pointerdown", returnToTitle);
 

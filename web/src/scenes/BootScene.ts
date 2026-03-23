@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { IS_TEST_MODE } from "../config/env";
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -6,7 +7,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start("titleMenu");
-    // this.scene.start("game");
+    this.scene.start(IS_TEST_MODE ? "game" : "titleMenu");
   }
 }

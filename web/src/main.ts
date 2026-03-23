@@ -1,49 +1,40 @@
 import Phaser from "phaser";
-import { GAME_BACKGROUND_COLOR, GAME_HEIGHT, GAME_WIDTH } from "./config/display";
+import { GAME_HEIGHT, GAME_WIDTH } from "./config/display";
+import { GAME_BACKGROUND_COLOR } from "./config/colors";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
 import { TitleMenuScene } from "./scenes/TitleMenuScene";
 import { WinScene } from "./scenes/WinScene";
+
+import { IS_TEST_MODE } from "./config/env";
+
 const BASS_TRACK_FILENAME = "Ronald Jenkees - Try The Bass.wav";
-const BASS_TRACK_ABSOLUTE_PATH =
-  `/Users/chiefokeefe/Developer/throw-ball/${BASS_TRACK_FILENAME}`;
-const BASS_TRACK_SOURCES = [
-  `${import.meta.env.BASE_URL}${encodeURIComponent(BASS_TRACK_FILENAME)}`,
-  encodeURI(`/@fs${BASS_TRACK_ABSOLUTE_PATH}`),
-];
 let bassTrack: HTMLAudioElement | null = null;
-let musicMuted = false;
+let musicMuted = IS_TEST_MODE;
 let game: Phaser.Game | null = null;
 
 const startLoopingBassTrack = (): void => {
-  let sourceIndex = 0;
-  const track = new Audio(BASS_TRACK_SOURCES[sourceIndex]);
+  if (IS_TEST_MODE) {
+    return;
+  }
+
+  const trackUrl = `${import.meta.env.BASE_URL}${encodeURIComponent(BASS_TRACK_FILENAME)}`;
+  const track = new Audio(trackUrl);
   bassTrack = track;
   track.loop = true;
   track.preload = "auto";
   track.crossOrigin = "anonymous";
   track.muted = musicMuted;
 
-  track.addEventListener("error", () => {
-    if (sourceIndex >= BASS_TRACK_SOURCES.length - 1) {
-      return;
-    }
-
-    sourceIndex += 1;
-    track.src = BASS_TRACK_SOURCES[sourceIndex];
-    track.load();
-    attemptPlayback();
-  });
-
   const attemptPlayback = (): void => {
-    if (track.paused === false) {
+    if (!track.paused) {
       return;
     }
 
     void track.play().then(() => {
       removeInteractionListeners();
     }).catch(() => {
-      // Ignore autoplay rejections; interaction fallback below retries playback.
+      // Autoplay rejected; interaction fallback below retries playback.
     });
   };
 
@@ -77,6 +68,11 @@ const config: Phaser.Types.Core.GameConfig = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   parent: "app",
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    fullscreenTarget: "app",
+  },
   backgroundColor: GAME_BACKGROUND_COLOR,
   scene: [BootScene, TitleMenuScene, GameScene, WinScene],
 };
@@ -86,6 +82,7 @@ const startGameButton = document.getElementById("start-game");
 const gameControls = document.getElementById("game-controls");
 const hudToggle = document.getElementById("hud-toggle");
 const musicToggle = document.getElementById("music-toggle");
+const fullscreenToggle = document.getElementById("fullscreen-toggle");
 let hudVisible = false;
 
 document.documentElement.style.setProperty("--game-width", `${GAME_WIDTH}px`);
@@ -114,15 +111,37 @@ const syncMusicMuted = (): void => {
   }
 };
 
+const syncFullscreenState = (): void => {
+  if (fullscreenToggle instanceof HTMLButtonElement) {
+    const isFullscreen = game?.scale.isFullscreen ?? false;
+    fullscreenToggle.textContent = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    fullscreenToggle.setAttribute("aria-pressed", String(isFullscreen));
+  }
+};
+
+const toggleFullscreen = (): void => {
+  if (game === null) {
+    return;
+  }
+  if (game.scale.isFullscreen) {
+    game.scale.stopFullscreen();
+    return;
+  }
+  game.scale.startFullscreen();
+};
+
 const startGame = (): void => {
   if (game !== null) {
     return;
   }
 
   game = new Phaser.Game(config);
+  game.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFullscreenState);
+  game.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFullscreenState);
   startLoopingBassTrack();
   syncHudVisibility();
   syncMusicMuted();
+  syncFullscreenState();
 
   if (titleScreen !== null) {
     titleScreen.classList.add("hidden");
@@ -132,8 +151,16 @@ const startGame = (): void => {
   }
 };
 
+if (IS_TEST_MODE) {
+  const header = document.querySelector(".header");
+  if (header instanceof HTMLElement) {
+    header.style.display = "none";
+  }
+}
+
 syncHudVisibility();
 syncMusicMuted();
+syncFullscreenState();
 
 if (startGameButton instanceof HTMLButtonElement) {
   startGameButton.addEventListener("click", startGame);
@@ -151,4 +178,14 @@ if (musicToggle instanceof HTMLButtonElement) {
     musicMuted = !musicMuted;
     syncMusicMuted();
   });
+}
+
+if (fullscreenToggle instanceof HTMLButtonElement) {
+  fullscreenToggle.addEventListener("click", () => {
+    toggleFullscreen();
+  });
+}
+
+if (IS_TEST_MODE) {
+  startGame();
 }

@@ -1,13 +1,14 @@
+import { STEPS_PER_POSSESSION } from "../config/rules";
+import {
+  DIR_TO_DELTA,
+  findCenterFloor,
+  isAdjacent,
+  isInside,
+  manhattan,
+  sameCoord,
+  spawnInFrontOfGoal,
+} from "./geometry";
 import { Command, Coordinate, Direction, GameState, Tile } from "./types";
-
-const DIR_TO_DELTA: Record<Direction, Coordinate> = {
-  N: { x: 0, y: 1 },
-  E: { x: 1, y: 0 },
-  S: { x: 0, y: -1 },
-  W: { x: -1, y: 0 },
-};
-
-const STEPS_PER_POSSESSION = 5;
 
 export function update(state: GameState, command: Command | null): GameState {
   if (command === null) {
@@ -37,21 +38,21 @@ function applyMove(state: GameState, playerId: 1 | 2, direction: Direction): Gam
   if (player.isFlying) {
     return state;
   }
-  const moveResult = player.flyArmed ? beginFlyMovement(state, playerId, direction) : applySingleStepMovement(state, playerId, direction);
-  const nextPosition = moveResult.position;
-  const nextStepsLeft = moveResult.stepsLeft;
+  const moveResult = player.flyArmed
+    ? beginFlyMovement(state, playerId, direction)
+    : applySingleStepMovement(state, playerId, direction);
 
   const nextPlayer = {
     ...player,
     direction: moveResult.direction,
-    position: nextPosition,
-    stepsLeft: nextStepsLeft,
+    position: moveResult.position,
+    stepsLeft: moveResult.stepsLeft,
     flyArmed: false,
     isFlying: moveResult.isFlying,
     flyDirection: moveResult.flyDirection,
   };
 
-  const nextBall = player.hasBall ? { ...state.ball, position: nextPosition } : state.ball;
+  const nextBall = player.hasBall ? { ...state.ball, position: moveResult.position } : state.ball;
 
   return {
     ...state,
@@ -158,7 +159,7 @@ function forceOpponentThrow(state: GameState, throwerId: 1 | 2): GameState | nul
     rngState = nextState;
   }, rngState);
 
-  let current = { ...state, rngState };
+  const current = { ...state, rngState };
   for (const direction of dirs) {
     const attempt = throwBall(current, throwerId, direction);
     if (attempt !== null) {
@@ -200,24 +201,23 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
   const p1 = state.players[1];
   const p2 = state.players[2];
   const goalsSwapped = !state.goalsSwapped;
+  const { tiles, width, height } = state.map;
   const p1OwnGoal = goalTileForPlayer(state, 1, goalsSwapped);
   const p2OwnGoal = goalTileForPlayer(state, 2, goalsSwapped);
-  const p1Spawn = spawnInFrontOfGoal(
-    state,
-    p1OwnGoal,
-    p1OwnGoal === Tile.Goal1 ? { x: 3, y: Math.floor(state.map.height / 2) } : { x: state.map.width - 4, y: Math.floor(state.map.height / 2) },
-    p1OwnGoal === Tile.Goal1 ? 1 : -1
-  );
-  let p2Spawn = spawnInFrontOfGoal(
-    state,
-    p2OwnGoal,
-    p2OwnGoal === Tile.Goal1 ? { x: 3, y: Math.floor(state.map.height / 2) } : { x: state.map.width - 4, y: Math.floor(state.map.height / 2) },
-    p2OwnGoal === Tile.Goal1 ? 1 : -1
-  );
+
+  const goalFallback = (goal: Tile.Goal1 | Tile.Goal2) =>
+    goal === Tile.Goal1
+      ? { x: 3, y: Math.floor(height / 2) }
+      : { x: width - 4, y: Math.floor(height / 2) };
+  const goalDirection = (goal: Tile.Goal1 | Tile.Goal2): 1 | -1 =>
+    goal === Tile.Goal1 ? 1 : -1;
+
+  const p1Spawn = spawnInFrontOfGoal(tiles, width, height, p1OwnGoal, goalFallback(p1OwnGoal), goalDirection(p1OwnGoal));
+  let p2Spawn = spawnInFrontOfGoal(tiles, width, height, p2OwnGoal, goalFallback(p2OwnGoal), goalDirection(p2OwnGoal));
   if (sameCoord(p1Spawn, p2Spawn)) {
     p2Spawn = findFarthestFloor(state, p2Spawn, p1Spawn);
   }
-  const ballSpawn = findCenterFloor(state);
+  const ballSpawn = findCenterFloor(tiles, width, height);
 
   return {
     ...state,
@@ -323,46 +323,6 @@ function findGoalXForScorer(state: GameState, scorerId: 1 | 2): number {
     }
   }
   return scorerId === 1 ? state.map.width - 2 : 1;
-}
-
-function spawnInFrontOfGoal(
-  state: GameState,
-  goalType: Tile.Goal1 | Tile.Goal2,
-  fallback: Coordinate,
-  preferredXDirection: 1 | -1
-): Coordinate {
-  const goalTiles: Coordinate[] = [];
-  for (let x = 0; x < state.map.width; x += 1) {
-    for (let y = 0; y < state.map.height; y += 1) {
-      if (state.map.tiles[x][y] === goalType) {
-        goalTiles.push({ x, y });
-      }
-    }
-  }
-  if (goalTiles.length === 0) {
-    return fallback;
-  }
-
-  goalTiles.sort((a, b) => a.y - b.y);
-  const center = goalTiles[Math.floor(goalTiles.length / 2)];
-  const preferredX = center.x + preferredXDirection * 2;
-  const candidates: Coordinate[] = [
-    { x: preferredX, y: center.y },
-    { x: preferredX, y: center.y - 1 },
-    { x: preferredX, y: center.y + 1 },
-    { x: preferredX, y: center.y - 2 },
-    { x: preferredX, y: center.y + 2 },
-  ];
-
-  for (const candidate of candidates) {
-    if (!isInside(state, candidate.x, candidate.y)) {
-      continue;
-    }
-    if (state.map.tiles[candidate.x][candidate.y] === Tile.Floor) {
-      return candidate;
-    }
-  }
-  return fallback;
 }
 
 function directionToward(from: Coordinate, to: Coordinate): Direction | null {
@@ -532,18 +492,14 @@ function isPlayerAt(state: GameState, x: number, y: number): boolean {
 }
 
 function isWalkable(state: GameState, x: number, y: number): boolean {
-  if (!isInside(state, x, y)) {
-    return false;
-  }
-  return state.map.tiles[x][y] === Tile.Floor;
+  return isInside(x, y, state.map.width, state.map.height) && state.map.tiles[x][y] === Tile.Floor;
 }
 
 function isOpponentGoalTile(state: GameState, playerId: 1 | 2, x: number, y: number): boolean {
-  if (!isInside(state, x, y)) {
+  if (!isInside(x, y, state.map.width, state.map.height)) {
     return false;
   }
-  const tile = state.map.tiles[x][y];
-  return tile === opponentGoalTileForPlayer(state, playerId);
+  return state.map.tiles[x][y] === opponentGoalTileForPlayer(state, playerId);
 }
 
 function goalTileForPlayer(state: GameState, playerId: 1 | 2, swapped = state.goalsSwapped): Tile.Goal1 | Tile.Goal2 {
@@ -555,36 +511,6 @@ function goalTileForPlayer(state: GameState, playerId: 1 | 2, swapped = state.go
 
 function opponentGoalTileForPlayer(state: GameState, playerId: 1 | 2): Tile.Goal1 | Tile.Goal2 {
   return goalTileForPlayer(state, playerId) === Tile.Goal1 ? Tile.Goal2 : Tile.Goal1;
-}
-
-function isInside(state: GameState, x: number, y: number): boolean {
-  return x >= 0 && x < state.map.width && y >= 0 && y < state.map.height;
-}
-
-function sameCoord(a: Coordinate, b: Coordinate): boolean {
-  return a.x === b.x && a.y === b.y;
-}
-
-function isAdjacent(a: Coordinate, b: Coordinate): boolean {
-  return Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1;
-}
-
-function findCenterFloor(state: GameState): Coordinate {
-  const cx = Math.floor(state.map.width / 2);
-  const cy = Math.floor(state.map.height / 2);
-  if (isWalkable(state, cx, cy)) {
-    return { x: cx, y: cy };
-  }
-  for (let r = 1; r < Math.max(state.map.width, state.map.height); r += 1) {
-    for (let x = cx - r; x <= cx + r; x += 1) {
-      for (let y = cy - r; y <= cy + r; y += 1) {
-        if (isWalkable(state, x, y)) {
-          return { x, y };
-        }
-      }
-    }
-  }
-  return { x: cx, y: cy };
 }
 
 function findFarthestFloor(state: GameState, from: Coordinate, avoid: Coordinate): Coordinate {
@@ -607,10 +533,6 @@ function findFarthestFloor(state: GameState, from: Coordinate, avoid: Coordinate
     }
   }
   return best;
-}
-
-function manhattan(a: Coordinate, b: Coordinate): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
 function randomUnit(rngState: number): [number, number] {

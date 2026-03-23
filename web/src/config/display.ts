@@ -1,28 +1,65 @@
-export const TILE_SIZE = 17;
+export const TILE_SIZE = 18;
 
-// in tiles
-export const MAP_WIDTH = 80;
-export const MAP_HEIGHT = 30;
-export const MAP_OFFSET = 2;
-export const HUD_OFFSET = 4.5;
 
-export const MAP_OFFSET_X = MAP_OFFSET * TILE_SIZE;
-export const MAP_OFFSET_Y = (MAP_OFFSET + HUD_OFFSET) * TILE_SIZE;
-export const GAME_WIDTH = MAP_WIDTH * TILE_SIZE + MAP_OFFSET_X * 2;
-export const GAME_HEIGHT = MAP_OFFSET_Y + MAP_HEIGHT * TILE_SIZE + MAP_OFFSET * TILE_SIZE;
-export const GAME_BACKGROUND_COLOR = "#000000";
+export const MAP_WIDTH = 80; // in tiles
+export const MAP_HEIGHT = 30; // in tiles
 
-// Shared HUD layout values for GameScene.
+// Font family (HUD, menus, debug overlay)
+export const FONT_DISPLAY = "monospace";
+
+// HUD Y layout
+export const TOP_MARGIN = 16;
+export const PLAYER_LABEL_FONT_PX = 34;
+export const MIDDLE_MARGIN = 16;
+export const BOTTOM_MARGIN = 16;
+
+export const FIRST_TO_FONT_PX = 20;
+export const SCORE_FONT_PX = 30;
+export const BAR_HEIGHT = 36;
+export const BAR_CORNER_RADIUS = BAR_HEIGHT / 2;
+export const BAR_DOT_GAP = 4;
+export const BAR_DOT_RADIUS = BAR_CORNER_RADIUS - BAR_DOT_GAP;
+
+// HUD X layout
+export const PLAYER_SCORE_X = 405;
+export const SCORE_BAR_GAP = 18;
+export const STATUS_BOX_GAP = 8;
+
+// HUD X and Y layout
+export const STATUS_BOX_TEXT_MARGIN = 4;
+export const STATUS_BOX_FONT_PX = 17;
+export const STATUS_BOX_BORDER_WIDTH = 2;
+
+// Debug HUD
+export const DEBUG_HUD_FONT_SIZE_PX = 10;
 export const DEBUG_HUD_TEXT_MARGIN = 8;
-export const TOP_HUD_BAR_Y = 38;
-export const TOP_HUD_BAR_WIDTH = 250;
-export const TOP_HUD_BAR_HEIGHT = 28;
-export const TOP_HUD_BAR_CENTER_GAP = 24;
-export const TOP_HUD_BAR_CORNER_RADIUS = 14;
-export const TOP_HUD_BAR_DOT_RADIUS = 11;
 
-export const TOP_HUD_STAT_BOX_Y = 66;
-export const TOP_HUD_STAT_BOX_WIDTH = 124;
-export const TOP_HUD_STAT_BOX_HEIGHT = 24;
-export const TOP_HUD_STAT_BOX_GAP = 6;
-export const TOP_HUD_STAT_BOX_SIDE_PADDING = 38;
+/** Pixel height of the HUD band (labels, score row, status row). */
+export const HUD_HEIGHT =
+  TOP_MARGIN + 
+  PLAYER_LABEL_FONT_PX + 
+  MIDDLE_MARGIN + 
+  STATUS_BOX_TEXT_MARGIN +
+  STATUS_BOX_FONT_PX + 
+  STATUS_BOX_TEXT_MARGIN +
+  BOTTOM_MARGIN;
+export const HUD_OFFSET = 0 * TILE_SIZE;
+export const TOP_OFFSET = HUD_HEIGHT + HUD_OFFSET;
+export const BOTTOM_OFFSET = 0 * TILE_SIZE;
+export const GAME_HEIGHT = TOP_OFFSET + MAP_HEIGHT * TILE_SIZE + BOTTOM_OFFSET;
+
+export const HORIZONTAL_OFFSET = 0;
+export const GAME_WIDTH = MAP_WIDTH * TILE_SIZE + HORIZONTAL_OFFSET * 2;
+
+/** TitleMenuScene text layout. */
+export const TITLE_MENU_SCENE = {
+  titleFontPx: 50,
+  menuFontPx: 20,
+  menuLineSpacing: 12,
+} as const;
+
+/** WinScene text layout and timing. */
+export const WIN_SCENE = {
+  messageFontPx: 58,
+  returnDelayMs: 2500,
+} as const;

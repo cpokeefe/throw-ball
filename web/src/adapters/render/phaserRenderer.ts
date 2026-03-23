@@ -1,35 +1,30 @@
 import Phaser from "phaser";
-import { GameState, PlayerState, Tile } from "../../core/types";
 import {
   FLOOR_COLOR,
   FLOOR_DOT_COLOR,
   PLAYER_1_COLOR,
   PLAYER_2_COLOR,
-  PLAYER_BALL_COLOR,
+  BALL_COLOR,
   PLAYER_HIGHLIGHT_ALPHA,
-  PLAYER_NO_STEPS_COLOR,
+  NO_STEPS_COLOR,
   WALL_BACKGROUND_COLOR,
   WALL_GLYPH_COLOR,
 } from "../../config/colors";
 import { TILE_SIZE } from "../../config/display";
-
-const FLOOR_DOT_RADIUS_RATIO = 0.1;
-
-const WALL_GLYPH_STROKE_RATIO = 0.12;
-const WALL_GLYPH_WIDTH_RATIO = 0.6;
-const WALL_GLYPH_HEIGHT_RATIO = 0.75;
-
-const PLAYER_GLYPH_STROKE_RATIO = 0.13;
-const PLAYER_CHEVRON_WIDTH_RATIO = 0.47;
-const PLAYER_CHEVRON_LENGTH_RATIO = 0.58;
-
-const BALL_RADIUS_RATIO = 0.22;
-
-const GOAL_CHECKER_COLUMNS = 5;
-const GOAL_CHECKER_ROWS = 6; // 5 is interesting
-
-// DYNAMIC VISUALIZATION CONSTANTS
-const FLY_ARMED_BLINK_MS = 120;
+import {
+  BALL_RADIUS_RATIO,
+  FLOOR_DOT_RADIUS_RATIO,
+  FLY_ARMED_BLINK_MS,
+  GOAL_CHECKER_COLUMNS,
+  GOAL_CHECKER_ROWS,
+  PLAYER_CHEVRON_LENGTH_RATIO,
+  PLAYER_CHEVRON_WIDTH_RATIO,
+  PLAYER_GLYPH_STROKE_RATIO,
+  WALL_GLYPH_HEIGHT_RATIO,
+  WALL_GLYPH_STROKE_RATIO,
+  WALL_GLYPH_WIDTH_RATIO,
+} from "../../config/renderer";
+import { GameState, PlayerState, Tile } from "../../core/types";
 
 export class PhaserRenderer {
   private graphics: Phaser.GameObjects.Graphics;
@@ -92,7 +87,6 @@ export class PhaserRenderer {
   }
 
   private drawFloorTile(px: number, py: number, hasPlayer: boolean): void {
-    // Tileset.FLOOR: foreground (128,192,128) on black.
     this.graphics.fillStyle(FLOOR_COLOR, 1);
     this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     if (!hasPlayer) {
@@ -102,13 +96,11 @@ export class PhaserRenderer {
   }
 
   private drawWallTile(px: number, py: number): void {
-    // Tileset.WALL: foreground (60,100,140) on dark gray.
     this.graphics.fillStyle(WALL_BACKGROUND_COLOR, 1);
     this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     this.graphics.fillStyle(WALL_GLYPH_COLOR, 1);
-    // Draw an "H" glyph for floor-adjacent border walls.
-    const strokeThickness = TILE_SIZE * WALL_GLYPH_STROKE_RATIO;
 
+    const strokeThickness = TILE_SIZE * WALL_GLYPH_STROKE_RATIO;
     const width = TILE_SIZE * WALL_GLYPH_WIDTH_RATIO;
     const height = TILE_SIZE * WALL_GLYPH_HEIGHT_RATIO;
     const insetX = (TILE_SIZE - width) / 2;
@@ -147,7 +139,7 @@ export class PhaserRenderer {
     const px = player.position.x * TILE_SIZE;
     const py = (this.worldHeight - 1 - player.position.y) * TILE_SIZE;
     if (player.hasBall) {
-      this.graphics.fillStyle(player.stepsLeft <= 0 ? PLAYER_NO_STEPS_COLOR : PLAYER_BALL_COLOR, PLAYER_HIGHLIGHT_ALPHA);
+      this.graphics.fillStyle(player.stepsLeft <= 0 ? NO_STEPS_COLOR : BALL_COLOR, PLAYER_HIGHLIGHT_ALPHA);
       this.graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
     const glyphColor = player.id === 1 ? PLAYER_1_COLOR : PLAYER_2_COLOR;
@@ -158,18 +150,17 @@ export class PhaserRenderer {
       return;
     }
 
-    // space between points of chevron
-    const width = TILE_SIZE * PLAYER_CHEVRON_WIDTH_RATIO;
+    const chevronWidth = TILE_SIZE * PLAYER_CHEVRON_WIDTH_RATIO;
     const length = TILE_SIZE * PLAYER_CHEVRON_LENGTH_RATIO;
 
     const middle = TILE_SIZE / 2;
     const backSpace = (TILE_SIZE - length) / 2;
-    const upperSpace = (TILE_SIZE - width) / 2;
+    const upperSpace = (TILE_SIZE - chevronWidth) / 2;
 
     const xMin = px + upperSpace;
-    const xMax = xMin + width;
+    const xMax = xMin + chevronWidth;
     const yMin = py + upperSpace;
-    const yMax = yMin + width;
+    const yMax = yMin + chevronWidth;
     const xNear = px + backSpace;
     const xFar = xNear + length;
     const yNear = py + backSpace;
@@ -218,7 +209,7 @@ export class PhaserRenderer {
   private drawBall(x: number, y: number): void {
     const px = x * TILE_SIZE + TILE_SIZE / 2;
     const py = (this.worldHeight - 1 - y) * TILE_SIZE + TILE_SIZE / 2;
-    this.graphics.fillStyle(PLAYER_BALL_COLOR, 1);
+    this.graphics.fillStyle(BALL_COLOR, 1);
     this.graphics.fillCircle(px, py, TILE_SIZE * BALL_RADIUS_RATIO);
   }
 
