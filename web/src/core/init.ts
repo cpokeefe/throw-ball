@@ -1,6 +1,6 @@
 import { STEPS_PER_POSSESSION } from "../config/rules";
 import { findCenterFloor, spawnInFrontOfGoal } from "./geometry";
-import { generateMap } from "./map/generator";
+import { generateMap } from "./mapgen";
 import { GameMode, GameState, Tile } from "./types";
 
 export function createInitialState(seed: number, mode: GameMode = "ONE_V_ONE"): GameState {
@@ -53,5 +53,6 @@ export function createInitialState(seed: number, mode: GameMode = "ONE_V_ONE"): 
       thrownBy: null,
     },
     score: { p1: 0, p2: 0 },
+    lastGoalTick: -1,
   };
 }

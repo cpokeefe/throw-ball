@@ -7,7 +7,13 @@ export enum Tile {
 
 export type Direction = "N" | "E" | "S" | "W";
 
-export type GameMode = "PRACTICE" | "ONE_V_ONE" | "ONE_V_CPU";
+export type GameMode =
+  | "PRACTICE"
+  | "ONE_V_ONE"
+  | "ONE_V_CPU"
+  | "ONE_ONE_V_CPU_CPU"
+  | "ONE_CPU_V_ONE_CPU"
+  | "ONE_ONE_V_ONE_ONE";
 
 export interface Coordinate {
   x: number;
@@ -49,6 +55,7 @@ export interface GameState {
   players: Record<1 | 2, PlayerState>;
   ball: BallState;
   score: { p1: number; p2: number };
+  lastGoalTick: number;
 }
 
 export type MoveCommand = {

@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Throw Ball Web</title>
     <style>
+      @font-face {
+        font-family: "VeraMono";
+        src: url("/fonts/VeraMono.ttf?v=2") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "VeraMono";
+        src: url("/fonts/VeraMoBd.ttf?v=2") format("truetype");
+        font-weight: bold;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "VeraMono";
+        src: url("/fonts/VeraMoIt.ttf?v=2") format("truetype");
+        font-weight: normal;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "VeraMono";
+        src: url("/fonts/VeraMoBI.ttf?v=2") format("truetype");
+        font-weight: bold;
+        font-style: italic;
+        font-display: swap;
+      }
+
       :root {
         font-family: Arial, Helvetica, sans-serif;
       }
@@ -88,6 +117,7 @@
 
       #app:fullscreen,
       #app:-webkit-full-screen {
+        position: relative;
         width: 100vw;
         height: 100vh;
         margin: 0;
@@ -97,14 +127,67 @@
         background: #000000;
       }
 
-      #app:fullscreen > *,
-      #app:-webkit-full-screen > * {
+      #app:fullscreen > canvas,
+      #app:-webkit-full-screen > canvas {
         margin: auto;
+        display: block;
       }
 
-      #app:fullscreen canvas,
-      #app:-webkit-full-screen canvas {
+      /* ---- Fullscreen margin ads ---- */
+
+      #ad-margins {
+        display: none;
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        margin: 0 !important;
+      }
+
+      #ad-margins.visible {
         display: block;
+      }
+
+      .ad-region {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        pointer-events: none;
+        transition: opacity var(--ad-fade-ms, 500ms) ease;
+        opacity: 1;
+      }
+
+      .ad-card {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid;
+        border-radius: 8px;
+        pointer-events: auto;
+        user-select: none;
+        font-family: 'VeraMono', monospace;
+      }
+
+      .ad-icon {
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .ad-text {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .ad-title {
+        font-weight: bold;
+        white-space: nowrap;
+      }
+
+      .ad-tagline {
+        white-space: nowrap;
       }
 
       .title-screen {
@@ -138,6 +221,18 @@
         background: #223041;
       }
 
+      .loading-text {
+        font-family: monospace;
+        font-size: 1.2rem;
+        margin: 0;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
       @media (max-width: 860px) {
         .header {
           flex-direction: column;
@@ -160,6 +255,9 @@
         <button id="start-game" class="control-button play-button" type="button" aria-label="Start game">
           &#9654;
         </button>
+      </section>
+      <section id="loading-screen" class="title-screen hidden">
+        <p class="loading-text">Loading...</p>
       </section>
       <div id="app"></div>
       <section id="game-controls" class="controls hidden">

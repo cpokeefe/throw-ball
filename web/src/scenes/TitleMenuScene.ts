@@ -3,13 +3,60 @@ import {
   toTextColor,
   SCORE_TEXT_COLOR,
   PLAYER_1_COLOR,
-  player2Color,
+  PLAYER_2_COLOR,
+  CPU_COLOR,
+  PLAYER_3_COLOR,
+  PLAYER_4_COLOR,
 } from "../config/colors";
 import { FONT_DISPLAY, TITLE_MENU_SCENE } from "../config/display";
-import { getGameModeEntry, DEFAULT_GAME_MODE } from "../config/gameModes";
+import { isComingSoon, DEFAULT_GAME_MODE } from "../config/gameModes";
 import { GameMode } from "../core/types";
 import { bindColonCommands } from "../input/colonCommands";
 import { getSiteControls } from "../siteBridge";
+import { setupEasterEggs } from "./titleEasterEggs";
+
+type VFlashSpec = {
+  left: { colors: [number, number] } | { static: number };
+  right: { colors: [number, number] } | { static: number };
+};
+
+const FLASH_MS = 500;
+
+function vSpecForMode(mode: GameMode): VFlashSpec {
+  switch (mode) {
+    case "ONE_ONE_V_CPU_CPU":
+      return {
+        left: { colors: [PLAYER_1_COLOR, PLAYER_2_COLOR] },
+        right: { static: CPU_COLOR },
+      };
+    case "ONE_CPU_V_ONE_CPU":
+      return {
+        left: { colors: [PLAYER_1_COLOR, CPU_COLOR] },
+        right: { colors: [PLAYER_2_COLOR, CPU_COLOR] },
+      };
+    case "ONE_ONE_V_ONE_ONE":
+      return {
+        left: { colors: [PLAYER_1_COLOR, PLAYER_3_COLOR] },
+        right: { colors: [PLAYER_2_COLOR, PLAYER_4_COLOR] },
+      };
+    case "PRACTICE":
+      return {
+        left: { static: PLAYER_1_COLOR },
+        right: { static: SCORE_TEXT_COLOR },
+      };
+    case "ONE_V_CPU":
+      return {
+        left: { static: PLAYER_1_COLOR },
+        right: { static: CPU_COLOR },
+      };
+    case "ONE_V_ONE":
+    default:
+      return {
+        left: { static: PLAYER_1_COLOR },
+        right: { static: PLAYER_2_COLOR },
+      };
+  }
+}
 
 export class TitleMenuScene extends Phaser.Scene {
   constructor() {
@@ -60,38 +107,93 @@ export class TitleMenuScene extends Phaser.Scene {
     const e = { x: wLeft + vWidth * 1.5, y: wBottom };
     const f = { x: wLeft + wWidth, y: wTop };
 
-    const g = this.add.graphics();
-    const fillSegmentAsParallelogram = (
+    const fillV = (
+      gfx: Phaser.GameObjects.Graphics,
       color: number,
-      p1: { x: number; y: number },
-      p2: { x: number; y: number },
+      top1: { x: number; y: number },
+      bot: { x: number; y: number },
+      top2: { x: number; y: number },
     ): void => {
-      // Keep top and bottom edges horizontal (parallel to y = 0).
-      g.fillStyle(color, 1);
-      g.fillPoints(
-        [
-          new Phaser.Geom.Point(p1.x, p1.y),
-          new Phaser.Geom.Point(p1.x + segmentParallel, p1.y),
-          new Phaser.Geom.Point(p2.x + segmentParallel, p2.y),
-          new Phaser.Geom.Point(p2.x, p2.y),
-        ],
-        true,
-        true
-      );
+      gfx.clear();
+      const seg = (p1: { x: number; y: number }, p2: { x: number; y: number }): void => {
+        gfx.fillStyle(color, 1);
+        gfx.fillPoints(
+          [
+            new Phaser.Geom.Point(p1.x, p1.y),
+            new Phaser.Geom.Point(p1.x + segmentParallel, p1.y),
+            new Phaser.Geom.Point(p2.x + segmentParallel, p2.y),
+            new Phaser.Geom.Point(p2.x, p2.y),
+          ],
+          true,
+          true,
+        );
+      };
+      seg(top1, bot);
+      seg(top2, bot);
     };
-    const isPractice = currentMode === "PRACTICE";
-    const p2Color = isPractice ? SCORE_TEXT_COLOR : player2Color(currentMode === "ONE_V_CPU");
-    // Draw right V first, then left V, so the left V appears on top where they overlap.
-    fillSegmentAsParallelogram(p2Color, d, e);
-    fillSegmentAsParallelogram(p2Color, f, e);
-    fillSegmentAsParallelogram(PLAYER_1_COLOR, a, b);
-    fillSegmentAsParallelogram(PLAYER_1_COLOR, c, b);
 
+    const spec = vSpecForMode(currentMode);
+
+    const rightVGfx = this.add.graphics();
+    const leftVGfx = this.add.graphics();
+
+    const staticLeftColor = "static" in spec.left ? spec.left.static : spec.left.colors[0];
+    const staticRightColor = "static" in spec.right ? spec.right.static : spec.right.colors[0];
+
+    fillV(rightVGfx, staticRightColor, d, e, f);
+    fillV(leftVGfx, staticLeftColor, a, b, c);
+
+    if ("colors" in spec.left) {
+      const [c0, c1] = spec.left.colors;
+      let idx = 0;
+      this.time.delayedCall(FLASH_MS / 2, () => {
+        fillV(leftVGfx, c1, a, b, c);
+        idx = 1;
+        this.time.addEvent({
+          delay: FLASH_MS,
+          loop: true,
+          callback: () => {
+            idx = 1 - idx;
+            fillV(leftVGfx, idx === 0 ? c0 : c1, a, b, c);
+          },
+        });
+      });
+    }
+
+    if ("colors" in spec.right) {
+      const [c0, c1] = spec.right.colors;
+      let idx = 0;
+      this.time.addEvent({
+        delay: FLASH_MS,
+        loop: true,
+        callback: () => {
+          idx = 1 - idx;
+          fillV(rightVGfx, idx === 0 ? c0 : c1, d, e, f);
+        },
+      });
+    }
+
+    const { trigger: easterEgg } = setupEasterEggs(this, {
+      leftVGfx, rightVGfx, fillV, a, b, c, d, e, f,
+      staticLeftColor, staticRightColor,
+      height, startX, wLeft, vWidth, wTop, wBottom,
+      fontPx, titleY, charW: leftText.width / 4,
+    });
+
+    const hasReplay = this.registry.get("replayLog") != null;
+    const menuLines = [
+      "New Game (N)",
+      "Load Game (L)",
+      "Replay Game (R)",
+      "Switch Game Mode (X)",
+      "Settings (S)",
+      "Guide (G)",
+    ];
     this.add
       .text(
         width / 2,
-        height * 0.6,
-        "New Game (N)\nLoad Game (L)\nSwitch Game Mode (X)\nMute (M)\nFull Screen (F)\nQuit (Q)",
+        height * 0.58,
+        menuLines.join("\n"),
         {
           fontFamily: FONT_DISPLAY,
           fontSize: `${TITLE_MENU_SCENE.menuFontPx}px`,
@@ -102,20 +204,38 @@ export class TitleMenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    const modeLabel = getGameModeEntry(currentMode).hudLabel;
     this.add
-      .text(width / 2, height * 0.87, `Current Game Mode: ${modeLabel}`, {
-        fontFamily: FONT_DISPLAY,
-        fontSize: `${TITLE_MENU_SCENE.menuFontPx}px`,
-        color: toTextColor(SCORE_TEXT_COLOR),
-      })
-      .setOrigin(0.5);
+      .text(
+        width / 2,
+        height * 0.96,
+        "Mute (M)  Full Screen (F)  Quit (Q)",
+        {
+          fontFamily: FONT_DISPLAY,
+          fontSize: `${TITLE_MENU_SCENE.menuFontPx}px`,
+          color: toTextColor(SCORE_TEXT_COLOR),
+        }
+      )
+      .setOrigin(0.5, 1);
 
     const startGame = (): void => {
-      this.registry.set("savedGameState", null);
-      this.scene.start("game");
+      if (isComingSoon(currentMode)) {
+        this.scene.start("comingSoon", { mode: currentMode });
+        return;
+      }
+      const useRandomSeed =
+        (this.registry.get("useRandomSeed") as boolean | undefined) ?? false;
+      if (useRandomSeed) {
+        this.registry.set("savedGameState", null);
+        this.scene.start("game");
+      } else {
+        this.scene.start("seed");
+      }
     };
     const loadGame = (): void => {
+      if (isComingSoon(currentMode)) {
+        this.scene.start("comingSoon", { mode: currentMode });
+        return;
+      }
       const saved = this.registry.get("savedGameState");
       if (saved != null) {
         this.scene.start("game", { loadState: true });
@@ -124,17 +244,32 @@ export class TitleMenuScene extends Phaser.Scene {
     const switchGameMode = (): void => {
       this.scene.start("gameModeSelect");
     };
+    const openSettings = (): void => {
+      this.scene.start("settings");
+    };
+    const openGuide = (): void => {
+      this.scene.start("guide");
+    };
     const site = getSiteControls();
     const toggleMute = (): void => { site?.toggleMute(); };
     const quitGame = (): void => { site?.quitToWebsite(); };
     const toggleFullscreen = (): void => { site?.toggleFullscreen(); };
+    const watchReplay = (): void => {
+      if (hasReplay) {
+        this.scene.start("replay");
+      }
+    };
 
     this.input.keyboard?.on("keydown-N", startGame);
     this.input.keyboard?.on("keydown-L", loadGame);
+    this.input.keyboard?.on("keydown-R", watchReplay);
     this.input.keyboard?.on("keydown-X", switchGameMode);
+    this.input.keyboard?.on("keydown-S", openSettings);
+    this.input.keyboard?.on("keydown-G", openGuide);
     this.input.keyboard?.on("keydown-M", toggleMute);
     this.input.keyboard?.on("keydown-Q", quitGame);
     this.input.keyboard?.on("keydown-F", toggleFullscreen);
+    this.input.keyboard?.on("keydown-E", easterEgg);
 
     bindColonCommands(this, undefined, {
       exitToTitle: () => {},
@@ -143,10 +278,14 @@ export class TitleMenuScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.keyboard?.off("keydown-N", startGame);
       this.input.keyboard?.off("keydown-L", loadGame);
+      this.input.keyboard?.off("keydown-R", watchReplay);
       this.input.keyboard?.off("keydown-X", switchGameMode);
+      this.input.keyboard?.off("keydown-S", openSettings);
+      this.input.keyboard?.off("keydown-G", openGuide);
       this.input.keyboard?.off("keydown-M", toggleMute);
       this.input.keyboard?.off("keydown-Q", quitGame);
       this.input.keyboard?.off("keydown-F", toggleFullscreen);
+      this.input.keyboard?.off("keydown-E", easterEgg);
     });
   }
 }

@@ -29,7 +29,7 @@ export function update(state: GameState, command: Command | null): GameState {
   return state;
 }
 
-function applyMove(state: GameState, playerId: 1 | 2, direction: Direction): GameState {
+export function applyMove(state: GameState, playerId: 1 | 2, direction: Direction): GameState {
   const player = state.players[playerId];
   if (player.isFlying) {
     return state;
@@ -61,7 +61,7 @@ function applyMove(state: GameState, playerId: 1 | 2, direction: Direction): Gam
   };
 }
 
-function applyAction(state: GameState, playerId: 1 | 2): GameState {
+export function applyAction(state: GameState, playerId: 1 | 2): GameState {
   const otherId: 1 | 2 = playerId === 1 ? 2 : 1;
   const player = state.players[playerId];
   const other = state.players[otherId];
@@ -196,7 +196,8 @@ function throwBall(state: GameState, playerId: 1 | 2, forcedDirection?: Directio
 function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
   const p1 = state.players[1];
   const p2 = state.players[2];
-  const goalsSwapped = !state.goalsSwapped;
+  const isPractice = state.mode === "PRACTICE";
+  const goalsSwapped = isPractice ? state.goalsSwapped : !state.goalsSwapped;
   const { tiles, width, height } = state.map;
   const p1OwnGoal = goalTileForPlayer(state, 1, goalsSwapped);
   const p2OwnGoal = goalTileForPlayer(state, 2, goalsSwapped);
@@ -210,7 +211,7 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
 
   const p1Spawn = spawnInFrontOfGoal(tiles, width, height, p1OwnGoal, goalFallback(p1OwnGoal), goalDirection(p1OwnGoal));
   let p2Spawn: Coordinate;
-  if (state.mode === "PRACTICE") {
+  if (isPractice) {
     p2Spawn = { x: -1, y: -1 };
   } else {
     p2Spawn = spawnInFrontOfGoal(tiles, width, height, p2OwnGoal, goalFallback(p2OwnGoal), goalDirection(p2OwnGoal));
@@ -224,10 +225,13 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
     ...state,
     tick: state.tick + 1,
     goalsSwapped,
-    score: {
-      p1: state.score.p1 + (scorerId === 1 ? 1 : 0),
-      p2: state.score.p2 + (scorerId === 2 ? 1 : 0),
-    },
+    lastGoalTick: state.tick + 1,
+    score: isPractice
+      ? state.score
+      : {
+          p1: state.score.p1 + (scorerId === 1 ? 1 : 0),
+          p2: state.score.p2 + (scorerId === 2 ? 1 : 0),
+        },
     ball: {
       position: ballSpawn,
       inFlight: false,
@@ -259,7 +263,7 @@ function scoreAndResetRound(state: GameState, scorerId: 1 | 2): GameState {
   };
 }
 
-function toggleFly(state: GameState, playerId: 1 | 2): GameState {
+export function toggleFly(state: GameState, playerId: 1 | 2): GameState {
   const player = state.players[playerId];
   if (player.isFlying || player.hasBall) {
     return state;
@@ -275,278 +279,6 @@ function toggleFly(state: GameState, playerId: 1 | 2): GameState {
       },
     },
   };
-}
-
-// ── CPU AI ──────────────────────────────────────────────────
-
-const CPU_DIRS: readonly Direction[] = ["N", "E", "S", "W"];
-const CPU_MIN_FLY_RUN = 3;
-const CPU_FLY_DISTANCE_THRESHOLD = 8;
-
-export function applyCpuDecision(state: GameState): GameState {
-  const cpu = state.players[2];
-  const p1 = state.players[1];
-
-  if (cpu.isFlying) return state;
-
-  if (!cpu.hasBall && !state.ball.inFlight && isAdjacent(cpu.position, state.ball.position)) {
-    return applyAction(state, 2);
-  }
-
-  if (isAdjacent(cpu.position, p1.position) && p1.hasBall) {
-    return applyAction(state, 2);
-  }
-
-  return cpu.hasBall ? cpuWithBall(state) : cpuWithoutBall(state);
-}
-
-function cpuWithBall(state: GameState): GameState {
-  const cpu = state.players[2];
-
-  const throwDir = cpuScoringThrowDir(state);
-  if (throwDir !== null) {
-    if (cpu.direction === throwDir) return applyAction(state, 2);
-    return applyMove(state, 2, throwDir);
-  }
-
-  if (cpu.stepsLeft === 0) {
-    return cpuFaceAndThrow(state);
-  }
-
-  const target = cpuFindScoringTarget(state);
-  if (target !== null) {
-    const step = cpuBfsFirstStep(state, cpu.position, target, false);
-    if (step !== null) return applyMove(state, 2, step);
-  }
-
-  return cpuFaceAndThrow(state);
-}
-
-function cpuFaceAndThrow(state: GameState): GameState {
-  const cpu = state.players[2];
-  const releaseDir = cpuBestReleaseDir(state);
-  if (releaseDir !== null && cpu.direction !== releaseDir) {
-    return applyMove(state, 2, releaseDir);
-  }
-  return applyAction(state, 2);
-}
-
-function cpuBestReleaseDir(state: GameState): Direction | null {
-  const cpu = state.players[2];
-  const oppGoal = opponentGoalTileForPlayer(state, 2);
-  const goalIsLeft = oppGoal === Tile.Goal1;
-  const preferred: Direction[] = goalIsLeft
-    ? ["W", "N", "S", "E"]
-    : ["E", "N", "S", "W"];
-
-  for (const dir of preferred) {
-    const delta = DIR_TO_DELTA[dir];
-    const x = cpu.position.x + delta.x;
-    const y = cpu.position.y + delta.y;
-    if (isWalkable(state, x, y) && !isPlayerAt(state, x, y)) {
-      return dir;
-    }
-  }
-  return null;
-}
-
-function cpuWithoutBall(state: GameState): GameState {
-  const cpu = state.players[2];
-  const target = cpuBallTarget(state);
-
-  if (cpu.flyArmed) {
-    const dir = cpuBestFlyDir(state, target);
-    if (dir !== null) return applyMove(state, 2, dir);
-    return toggleFly(state, 2);
-  }
-
-  if (cpuShouldFly(state, target)) {
-    return toggleFly(state, 2);
-  }
-
-  const step = cpuBfsFirstStep(state, cpu.position, target, true);
-  if (step !== null) return applyMove(state, 2, step);
-
-  return cpuMoveAnywhere(state);
-}
-
-function cpuBallTarget(state: GameState): Coordinate {
-  if (!state.ball.inFlight || state.ball.direction === null) {
-    return state.ball.position;
-  }
-  const delta = DIR_TO_DELTA[state.ball.direction];
-  let x = state.ball.position.x;
-  let y = state.ball.position.y;
-  for (;;) {
-    const nx = x + delta.x;
-    const ny = y + delta.y;
-    if (!isWalkable(state, nx, ny)) return { x, y };
-    x = nx;
-    y = ny;
-  }
-}
-
-function cpuMoveAnywhere(state: GameState): GameState {
-  const cpu = state.players[2];
-  for (const dir of CPU_DIRS) {
-    const moved = applyMove(state, 2, dir);
-    if (!sameCoord(moved.players[2].position, cpu.position)) {
-      return moved;
-    }
-  }
-  return state;
-}
-
-// ── CPU helpers ─────────────────────────────────────────────
-
-function cpuScoringThrowDir(state: GameState): Direction | null {
-  const cpu = state.players[2];
-  const oppGoal = opponentGoalTileForPlayer(state, 2);
-  const ordered = [cpu.direction, ...CPU_DIRS.filter(d => d !== cpu.direction)];
-  for (const dir of ordered) {
-    if (cpuThrowScores(state, cpu.position, dir, oppGoal, false)) return dir;
-  }
-  return null;
-}
-
-function cpuThrowScores(
-  state: GameState,
-  from: Coordinate,
-  dir: Direction,
-  goalTile: Tile.Goal1 | Tile.Goal2,
-  ignoreP1: boolean,
-): boolean {
-  const delta = DIR_TO_DELTA[dir];
-  let x = from.x + delta.x;
-  let y = from.y + delta.y;
-  if (!isWalkable(state, x, y)) return false;
-  if (!ignoreP1 && isPlayerAt(state, x, y)) return false;
-
-  for (;;) {
-    x += delta.x;
-    y += delta.y;
-    if (!isInside(x, y, state.map.width, state.map.height)) return false;
-    if (!ignoreP1 && isPlayerAt(state, x, y)) return false;
-    const tile = state.map.tiles[x][y];
-    if (tile === goalTile) return true;
-    if (tile !== Tile.Floor) return false;
-  }
-}
-
-function cpuFindScoringTarget(state: GameState): Coordinate | null {
-  const cpu = state.players[2];
-  const oppGoal = opponentGoalTileForPlayer(state, 2);
-  let best: Coordinate | null = null;
-  let bestDist = Infinity;
-
-  for (let x = 0; x < state.map.width; x += 1) {
-    for (let y = 0; y < state.map.height; y += 1) {
-      if (state.map.tiles[x][y] !== Tile.Floor) continue;
-      for (const dir of CPU_DIRS) {
-        if (cpuThrowScores(state, { x, y }, dir, oppGoal, true)) {
-          const dist = manhattan(cpu.position, { x, y });
-          if (dist < bestDist) {
-            bestDist = dist;
-            best = { x, y };
-          }
-          break;
-        }
-      }
-    }
-  }
-  return best;
-}
-
-function cpuBfsFirstStep(
-  state: GameState,
-  from: Coordinate,
-  to: Coordinate,
-  reachAdjacent: boolean,
-): Direction | null {
-  if (reachAdjacent ? isAdjacent(from, to) : sameCoord(from, to)) return null;
-
-  const { width, height, tiles } = state.map;
-  const p1 = state.players[1].position;
-  const ball = state.ball.position;
-  const size = width * height;
-  const key = (x: number, y: number): number => x * height + y;
-
-  const visited = new Uint8Array(size);
-  const origin: (Direction | null)[] = new Array(size).fill(null);
-  const start = key(from.x, from.y);
-  visited[start] = 1;
-
-  const queue: number[] = [start];
-  let head = 0;
-
-  while (head < queue.length) {
-    const ci = queue[head++];
-    const cx = (ci / height) | 0;
-    const cy = ci % height;
-
-    for (const dir of CPU_DIRS) {
-      const d = DIR_TO_DELTA[dir];
-      const nx = cx + d.x;
-      const ny = cy + d.y;
-      if (!isInside(nx, ny, width, height)) continue;
-      const ni = key(nx, ny);
-      if (visited[ni]) continue;
-      if (tiles[nx][ny] !== Tile.Floor) continue;
-      if (nx === p1.x && ny === p1.y) continue;
-      if (reachAdjacent && nx === ball.x && ny === ball.y) continue;
-
-      visited[ni] = 1;
-      origin[ni] = origin[ci] ?? dir;
-
-      const reached = reachAdjacent
-        ? isAdjacent({ x: nx, y: ny }, to)
-        : nx === to.x && ny === to.y;
-      if (reached) return origin[ni]!;
-
-      queue.push(ni);
-    }
-  }
-  return null;
-}
-
-function cpuShouldFly(state: GameState, target: Coordinate): boolean {
-  if (manhattan(state.players[2].position, target) < CPU_FLY_DISTANCE_THRESHOLD) return false;
-  return cpuBestFlyDir(state, target) !== null;
-}
-
-function cpuBestFlyDir(state: GameState, target: Coordinate): Direction | null {
-  const cpu = state.players[2];
-  const p1 = state.players[1].position;
-  const currentDist = manhattan(cpu.position, target);
-
-  let bestDir: Direction | null = null;
-  let bestDist = currentDist;
-
-  for (const dir of CPU_DIRS) {
-    const delta = DIR_TO_DELTA[dir];
-    let x = cpu.position.x;
-    let y = cpu.position.y;
-    let run = 0;
-
-    for (;;) {
-      const nx = x + delta.x;
-      const ny = y + delta.y;
-      if (!isWalkable(state, nx, ny)) break;
-      if (nx === p1.x && ny === p1.y) break;
-      if (sameCoord(state.ball.position, { x: nx, y: ny })) break;
-      x = nx;
-      y = ny;
-      run += 1;
-    }
-
-    if (run < CPU_MIN_FLY_RUN) continue;
-    const landDist = manhattan({ x, y }, target);
-    if (landDist < bestDist) {
-      bestDist = landDist;
-      bestDir = dir;
-    }
-  }
-  return bestDir;
 }
 
 function applySingleStepMovement(

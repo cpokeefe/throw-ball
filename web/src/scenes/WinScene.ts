@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { toTextColor, PLAYER_1_COLOR, player2Color } from "../config/colors";
-import { FONT_DISPLAY } from "../config/display";
-import { WIN_SCENE } from "../config/display";
+import { FONT_DISPLAY, WIN_SCENE } from "../config/display";
 import { GameMode } from "../core/types";
 import { bindColonCommands } from "../input/colonCommands";
 
@@ -39,23 +38,51 @@ export class WinScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    const hasReplay = this.registry.get("replayLog") != null;
+
+    this.add
+      .text(
+        width * 0.5,
+        height * 0.65,
+        hasReplay
+          ? "Watch Replay (R)   Title Menu (any key)"
+          : "Title Menu (any key)",
+        {
+          fontFamily: FONT_DISPLAY,
+          fontSize: `${Math.floor(WIN_SCENE.messageFontPx * 0.35)}px`,
+          color: toTextColor(0xffffff),
+        }
+      )
+      .setOrigin(0.5);
+
     const returnToTitle = (): void => {
       this.scene.start("titleMenu");
+    };
+    const watchReplay = (): void => {
+      this.scene.start("replay");
     };
 
     bindColonCommands(this, undefined, {
       exitToTitle: returnToTitle,
     });
 
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (hasReplay && event.key.toLowerCase() === "r") {
+        watchReplay();
+        return;
+      }
+      returnToTitle();
+    };
+
     const returnTimer = this.time.delayedCall(WIN_SCENE.returnDelayMs, returnToTitle);
-    this.input.keyboard?.once("keydown", returnToTitle);
+    this.input.keyboard?.on("keydown", onKeyDown);
     this.input.once("pointerdown", returnToTitle);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (returnTimer.getProgress() < 1) {
         returnTimer.remove(false);
       }
-      this.input.keyboard?.off("keydown", returnToTitle);
+      this.input.keyboard?.off("keydown", onKeyDown);
       this.input.off("pointerdown", returnToTitle);
     });
   }

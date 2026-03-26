@@ -2,11 +2,17 @@ import Phaser from "phaser";
 import { GAME_HEIGHT, GAME_WIDTH } from "./config/display";
 import { GAME_BACKGROUND_COLOR } from "./config/colors";
 import { BootScene } from "./scenes/BootScene";
+import { ComingSoonScene } from "./scenes/ComingSoonScene";
 import { GameScene } from "./scenes/GameScene";
 import { GameModeSelectScene } from "./scenes/GameModeSelectScene";
+import { GuideScene } from "./scenes/GuideScene";
+import { ReplayScene } from "./scenes/ReplayScene";
+import { SeedScene } from "./scenes/SeedScene";
+import { SettingsScene } from "./scenes/SettingsScene";
 import { TitleMenuScene } from "./scenes/TitleMenuScene";
 import { WinScene } from "./scenes/WinScene";
 
+import { AdManager } from "./ads/adManager";
 import { IS_TEST_MODE } from "./config/env";
 import { setSiteControls } from "./siteBridge";
 
@@ -14,18 +20,25 @@ const BASS_TRACK_FILENAME = "Ronald Jenkees - Try The Bass.wav";
 let bassTrack: HTMLAudioElement | null = null;
 let musicMuted = IS_TEST_MODE;
 let game: Phaser.Game | null = null;
+let adManager: AdManager | null = null;
 
-const startLoopingBassTrack = (): void => {
-  if (IS_TEST_MODE) {
-    return;
-  }
-
+if (!IS_TEST_MODE) {
   const trackUrl = `${import.meta.env.BASE_URL}${encodeURIComponent(BASS_TRACK_FILENAME)}`;
   const track = new Audio(trackUrl);
-  bassTrack = track;
   track.loop = true;
   track.preload = "auto";
   track.crossOrigin = "anonymous";
+  track.muted = musicMuted;
+  track.load();
+  bassTrack = track;
+}
+
+const startBassPlayback = (): void => {
+  if (bassTrack === null || IS_TEST_MODE) {
+    return;
+  }
+
+  const track = bassTrack;
   track.muted = musicMuted;
 
   const attemptPlayback = (): void => {
@@ -35,9 +48,7 @@ const startLoopingBassTrack = (): void => {
 
     void track.play().then(() => {
       removeInteractionListeners();
-    }).catch(() => {
-      // Autoplay rejected; interaction fallback below retries playback.
-    });
+    }).catch(() => {});
   };
 
   attemptPlayback();
@@ -76,7 +87,7 @@ const config: Phaser.Types.Core.GameConfig = {
     fullscreenTarget: "app",
   },
   backgroundColor: GAME_BACKGROUND_COLOR,
-  scene: [BootScene, TitleMenuScene, GameModeSelectScene, GameScene, WinScene],
+  scene: [BootScene, TitleMenuScene, GameModeSelectScene, ComingSoonScene, SettingsScene, GuideScene, SeedScene, GameScene, WinScene, ReplayScene],
 };
 
 const titleScreen = document.getElementById("title-screen");
@@ -85,7 +96,9 @@ const gameControls = document.getElementById("game-controls");
 const hudToggle = document.getElementById("hud-toggle");
 const musicToggle = document.getElementById("music-toggle");
 const fullscreenToggle = document.getElementById("fullscreen-toggle");
+const loadingScreen = document.getElementById("loading-screen");
 let hudVisible = false;
+const LOADING_TIMEOUT_MS = 8000;
 
 document.documentElement.style.setProperty("--game-width", `${GAME_WIDTH}px`);
 document.documentElement.style.setProperty("--game-height", `${GAME_HEIGHT}px`);
@@ -147,11 +160,15 @@ const quitToWebsite = (): void => {
     if (game !== g) {
       return;
     }
+    if (adManager !== null) {
+      adManager.destroy();
+      adManager = null;
+    }
     game.destroy(true);
     game = null;
     if (bassTrack !== null) {
       bassTrack.pause();
-      bassTrack = null;
+      bassTrack.currentTime = 0;
     }
     if (titleScreen !== null) {
       titleScreen.classList.remove("hidden");
@@ -187,29 +204,60 @@ setSiteControls({
   quitToWebsite,
 });
 
+const launchGame = async (): Promise<void> => {
+  if (game !== null) {
+    return;
+  }
+
+  await document.fonts.load("16px 'VeraMono'");
+
+  game = new Phaser.Game(config);
+  game.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFullscreenState);
+  game.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFullscreenState);
+  adManager = new AdManager(game);
+  syncHudVisibility();
+  syncMusicMuted();
+  syncFullscreenState();
+
+    if (loadingScreen !== null) {
+      loadingScreen.classList.add("hidden");
+    }
+    if (gameControls !== null) {
+      gameControls.classList.add("hidden");
+    }
+  };
+
 const startGame = (): void => {
   if (game !== null) {
     return;
   }
 
-  game = new Phaser.Game(config);
-  game.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFullscreenState);
-  game.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFullscreenState);
-  startLoopingBassTrack();
-  syncHudVisibility();
-  syncMusicMuted();
-  syncFullscreenState();
-
   if (titleScreen !== null) {
     titleScreen.classList.add("hidden");
   }
-  if (gameControls !== null) {
-    gameControls.classList.add("hidden");
+
+  if (IS_TEST_MODE || musicMuted || bassTrack === null) {
+    startBassPlayback();
+    launchGame();
+    return;
   }
 
-  if (!IS_TEST_MODE) {
-    game.scale.startFullscreen();
+  if (loadingScreen !== null) {
+    loadingScreen.classList.remove("hidden");
   }
+
+  let launched = false;
+  const launch = (): void => {
+    if (launched) {
+      return;
+    }
+    launched = true;
+    launchGame();
+  };
+
+  bassTrack.addEventListener("playing", launch, { once: true });
+  window.setTimeout(launch, LOADING_TIMEOUT_MS);
+  startBassPlayback();
 };
 
 if (IS_TEST_MODE) {
@@ -246,6 +294,4 @@ if (fullscreenToggle instanceof HTMLButtonElement) {
   });
 }
 
-if (IS_TEST_MODE) {
-  startGame();
-}
+startGame();

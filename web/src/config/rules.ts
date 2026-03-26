@@ -16,3 +16,16 @@ export const SIM_TICK_MS = {
 
 /** Milliseconds between CPU decisions. Lower = harder. */
 export const CPU_TICK_MS = 250;
+
+const CPU_TICK_BY_LEVEL: Record<string, number> = {
+  easy: 500,
+  medium: CPU_TICK_MS,
+  hard: 100,
+};
+
+export function cpuTickForLevel(level: string | undefined): number {
+  if (level != null && level in CPU_TICK_BY_LEVEL) {
+    return CPU_TICK_BY_LEVEL[level];
+  }
+  return CPU_TICK_MS;
+}
