@@ -1,14 +1,13 @@
 import Phaser from "phaser";
 import { toTextColor, SCORE_TEXT_COLOR } from "../config/colors";
 import { FONT_DISPLAY, TITLE_MENU_SCENE } from "../config/display";
+import { type CpuLevel, DEFAULT_SETTINGS } from "../config/rules";
 import { bindColonCommands } from "../input/colonCommands";
 
-type CpuLevel = "easy" | "medium" | "hard";
-
 export class SettingsScene extends Phaser.Scene {
-  private targetScore = 3;
-  private cpuLevel: CpuLevel = "medium";
-  private useRandomSeed = false;
+  private targetScore = DEFAULT_SETTINGS.targetScore;
+  private cpuLevel: CpuLevel = DEFAULT_SETTINGS.cpuLevel;
+  private useRandomSeed = DEFAULT_SETTINGS.useRandomSeed;
   private digitBuffer: number[] = [];
 
   private scoreValueText!: Phaser.GameObjects.Text;
@@ -26,11 +25,14 @@ export class SettingsScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(toTextColor(0x000000));
 
     this.targetScore =
-      (this.registry.get("targetScore") as number | undefined) ?? 3;
+      (this.registry.get("targetScore") as number | undefined) ??
+      DEFAULT_SETTINGS.targetScore;
     this.cpuLevel =
-      (this.registry.get("cpuLevel") as CpuLevel | undefined) ?? "medium";
+      (this.registry.get("cpuLevel") as CpuLevel | undefined) ??
+      DEFAULT_SETTINGS.cpuLevel;
     this.useRandomSeed =
-      (this.registry.get("useRandomSeed") as boolean | undefined) ?? false;
+      (this.registry.get("useRandomSeed") as boolean | undefined) ??
+      DEFAULT_SETTINGS.useRandomSeed;
     this.digitBuffer = [];
 
     const fontPx = TITLE_MENU_SCENE.menuFontPx;

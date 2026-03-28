@@ -178,7 +178,7 @@ P1 uses WASD+Q+E. P3 (the second human) needs a **third keyset**. Options:
 | Player | Move | Fly | Action |
 |--------|------|-----|--------|
 | P1 | WASD | Q | E |
-| P3 | IJKL or Arrows | U | O / . |
+| P3 | IJKL | U | O |
 
 This is the **same binding P2 currently uses** in ONE_V_ONE mode. The keyboard adapter already polls P2 keys — just route those commands to `playerId: 3` when mode is `ONE_ONE_V_CPU_CPU`.
 
@@ -316,7 +316,7 @@ Update the controls label in the pause overlay:
 
 ```
 P1: WASD move, Q fly, E action
-P3: IJKL/Arrows move, U fly, O/. action
+P3: IJKL move, U fly, O action
 CPU: P2, P4 (auto)
 ```
 

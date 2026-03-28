@@ -4,9 +4,7 @@ import { FONT_DISPLAY, TITLE_MENU_SCENE } from "../config/display";
 import { bindColonCommands } from "../input/colonCommands";
 
 const LEFT_COLUMN = [
-  "Goal",
-  "  - throw the ball in the opposing",
-  "    player's goal",
+  "Goal: throw the ball in the opposing player's goal",
   "",
   "Rules",
   "  - players only get 5 steps while",
@@ -84,7 +82,7 @@ export class GuideScene extends Phaser.Scene {
     this.add.text(leftX, bodyY, LEFT_COLUMN, bodyStyle);
     this.add.text(width * 0.52, bodyY, RIGHT_COLUMN, bodyStyle);
 
-    this.add.text(leftX, height * 0.92, "Back (B)", {
+    this.add.text(width * 0.12, height * 0.92, "Back (B)", {
       fontFamily: FONT_DISPLAY,
       fontSize: `${menuFontPx}px`,
       color: textColor,

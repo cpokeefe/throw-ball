@@ -28,7 +28,7 @@ export class GameModeSelectScene extends Phaser.Scene {
 
     const menuLines = GAME_MODES.map(e => `${e.menuLabel} (${e.key})`).join("\n");
     this.add
-      .text(width / 2, height * 0.5, menuLines, {
+      .text(width / 2, height * 0.55, menuLines, {
         ...textStyle,
         align: "center",
         lineSpacing: TITLE_MENU_SCENE.menuLineSpacing,

@@ -1,10 +1,10 @@
+// Font family (HUD, menus, debug overlay)
+export const FONT_DISPLAY = "'VeraMono', monospace";
+
 export const TILE_SIZE = 18;
 
 export const MAP_WIDTH = 80; // in tiles
 export const MAP_HEIGHT = 30; // in tiles
-
-// Font family (HUD, menus, debug overlay)
-export const FONT_DISPLAY = "'VeraMono', monospace";
 
 // HUD Y layout
 export const TOP_MARGIN = 16;
@@ -29,13 +29,12 @@ export const STATUS_BOX_TEXT_MARGIN = 4;
 export const STATUS_BOX_FONT_PX = 17;
 export const STATUS_BOX_BORDER_WIDTH = 2;
 
-// Debug HUD
-export const DEBUG_HUD_FONT_SIZE_PX = 10;
-export const DEBUG_HUD_TEXT_MARGIN = 8;
+// BOTTOM TEXT
+export const COMMANDS_TEXT_FONT_PX = 17;
 
-// Bottom controls HUD (fullscreen only)
-export const BOTTOM_HUD_FONT_PX = 10;
-export const BOTTOM_HUD_PADDING = 8;
+/** Pause overlay: control hints under each player's status row. */
+export const PAUSE_CONTROLS_HINT_FONT_PX = 17;
+
 
 /** Pixel height of the HUD band (labels, score row, status row). */
 export const HUD_HEIGHT =
@@ -48,7 +47,7 @@ export const HUD_HEIGHT =
   BOTTOM_MARGIN;
 export const HUD_OFFSET = 0 * TILE_SIZE;
 export const TOP_OFFSET = HUD_HEIGHT + HUD_OFFSET;
-export const BOTTOM_OFFSET = BOTTOM_HUD_FONT_PX + BOTTOM_HUD_PADDING * 2;
+export const BOTTOM_OFFSET = 2.25 * TILE_SIZE;
 export const GAME_HEIGHT = TOP_OFFSET + MAP_HEIGHT * TILE_SIZE + BOTTOM_OFFSET;
 
 export const HORIZONTAL_OFFSET = 0;

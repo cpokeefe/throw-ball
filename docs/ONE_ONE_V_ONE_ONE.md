@@ -99,19 +99,9 @@ scene.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
 });
 ```
 
-### Arrow key conflict with P2
+### P2 movement: IJKL only
 
-Currently, P2 can use either IJKL *or* Arrow keys. In 4-player mode, Arrows must be exclusive to P4. Remove the `arrows` fallback from `pollP2()` when mode is `ONE_ONE_V_ONE_ONE`:
-
-```typescript
-private pollP2(commands: Command[]): void {
-  const ijkl = justPressedDirection(this.keys.i, this.keys.l, this.keys.k, this.keys.j);
-  // Only allow arrows for P2 in non-4-player modes
-  const arrows = this.is4Player ? null : justPressedDirection(...);
-  const dir = ijkl ?? arrows;
-  // ...
-}
-```
+`KeyboardAdapter.pollP2()` uses **IJKL only** for movement (no arrow-key fallback). In 4-player mode, **P4** can use the dedicated arrow-key set without conflicting with P2.
 
 ---
 
@@ -196,7 +186,7 @@ The pause overlay must show all four control sets:
 ```
 P1: WASD move, Q fly, E action
 P3: TFGH move, R fly, Y action
-P2: IJKL move, U fly, O/. action
+P2: IJKL move, U fly, O action
 P4: Arrows move, RShift fly, RCtrl action
 ```
 
@@ -308,7 +298,7 @@ Already handled: `vSpecForMode` returns `{ left: { colors: [P1, P3] }, right: { 
 
 | File | Change |
 |------|--------|
-| `keyboard.ts` | Add P3 (TFGH/R/Y) and P4 (Arrows/RShift/RCtrl) polling, remove Arrow fallback from P2, raw event listener for RShift/RCtrl |
+| `keyboard.ts` | Add P3 (TFGH/R/Y) and P4 (Arrows/RShift/RCtrl) polling; P2 remains IJKL-only for movement, raw event listener for RShift/RCtrl |
 | `GameScene.ts` | Skip CPU ticks, poll all 4 players, 4-player HUD, 4-player pause controls text |
 | `phaserRenderer.ts` | All 4 unique human colors |
 | `WinScene.ts` | Team-based winner display |

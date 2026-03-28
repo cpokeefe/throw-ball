@@ -8,6 +8,23 @@ export const GAME_RULES = {
   scoreToWin: 3,
 } as const;
 
+/** CPU difficulty label (settings menu + registry `cpuLevel`). */
+export type CpuLevel = "easy" | "medium" | "hard";
+
+/**
+ * Default menu/settings values when the registry has no user choice yet.
+ * Change these to change first-run and fallback behavior app-wide.
+ */
+export const DEFAULT_SETTINGS: {
+  targetScore: number;
+  cpuLevel: CpuLevel;
+  useRandomSeed: boolean;
+} = {
+  targetScore: GAME_RULES.scoreToWin,
+  cpuLevel: "medium",
+  useRandomSeed: false,
+};
+
 /** Milliseconds between simulation steps (ball vs. movement/fly). */
 export const SIM_TICK_MS = {
   ball: 3,

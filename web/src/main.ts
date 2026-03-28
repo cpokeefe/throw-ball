@@ -124,6 +124,10 @@ const syncMusicMuted = (): void => {
     musicToggle.textContent = musicMuted ? "Unmute" : "Mute";
     musicToggle.setAttribute("aria-pressed", String(musicMuted));
   }
+
+  if (game !== null) {
+    game.registry.set("musicMuted", musicMuted);
+  }
 };
 
 const syncFullscreenState = (): void => {
@@ -214,7 +218,7 @@ const launchGame = async (): Promise<void> => {
   game = new Phaser.Game(config);
   game.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFullscreenState);
   game.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFullscreenState);
-  adManager = new AdManager(game);
+  // adManager = new AdManager(game);
   syncHudVisibility();
   syncMusicMuted();
   syncFullscreenState();
@@ -224,6 +228,10 @@ const launchGame = async (): Promise<void> => {
     }
     if (gameControls !== null) {
       gameControls.classList.add("hidden");
+    }
+
+    if (!IS_TEST_MODE) {
+        game.scale.startFullscreen();
     }
   };
 
@@ -294,4 +302,5 @@ if (fullscreenToggle instanceof HTMLButtonElement) {
   });
 }
 
-startGame();
+
+// startGame();

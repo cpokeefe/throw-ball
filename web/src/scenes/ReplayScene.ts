@@ -6,8 +6,6 @@ import {
   BAR_CORNER_RADIUS,
   BAR_DOT_RADIUS,
   BAR_HEIGHT,
-  DEBUG_HUD_FONT_SIZE_PX,
-  DEBUG_HUD_TEXT_MARGIN,
   FIRST_TO_FONT_PX,
   FONT_DISPLAY,
   GAME_HEIGHT,
@@ -22,9 +20,10 @@ import {
   STATUS_BOX_GAP,
   STATUS_BOX_TEXT_MARGIN,
   TOP_MARGIN,
+  COMMANDS_TEXT_FONT_PX,
 } from "../config/display";
 import { isPlayer2Active } from "../config/gameModes";
-import { SIM_TICK_MS } from "../config/rules";
+import { DEFAULT_SETTINGS, SIM_TICK_MS } from "../config/rules";
 import { buildActionGroups } from "../core/replayLog";
 import type { ReplayLog } from "../core/replayLog";
 import { GameState } from "../core/types";
@@ -74,14 +73,15 @@ export class ReplayScene extends Phaser.Scene {
   private hudP2BarWidth = 0;
   private hudBarHeight = 0;
   private hudStatBoxY = 0;
-  private debugHudText!: Phaser.GameObjects.Text;
-  private bottomRedText!: Phaser.GameObjects.Text;
-  private bottomGrayText!: Phaser.GameObjects.Text;
+  private bottomBarContainer!: Phaser.GameObjects.Container;
+  private bottomPauseResumeSegment!: Phaser.GameObjects.Text;
+  private bottomScrubSegment!: Phaser.GameObjects.Text;
+  private bottomCommandsSegment!: Phaser.GameObjects.Text;
 
   private p2Active = true;
   private isPractice = false;
   private isCpu = false;
-  private targetScore = 3;
+  private targetScore = DEFAULT_SETTINGS.targetScore;
 
   constructor() {
     super("replay");
@@ -120,30 +120,56 @@ export class ReplayScene extends Phaser.Scene {
 
     this.createHud();
 
-    this.debugHudText = this.add
-      .text(DEBUG_HUD_TEXT_MARGIN, GAME_HEIGHT - DEBUG_HUD_TEXT_MARGIN, "", {
-        fontFamily: FONT_DISPLAY,
-        fontSize: `${DEBUG_HUD_FONT_SIZE_PX}px`,
-        color: toTextColor(HudColors.SCORE_TEXT_COLOR),
+    const bottomCmdStyle = {
+      fontFamily: FONT_DISPLAY,
+      fontSize: `${COMMANDS_TEXT_FONT_PX}px`,
+      color: toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR),
+    } as const;
+
+    this.bottomPauseResumeSegment = this.add
+      .text(0, 0, "", bottomCmdStyle)
+      .setOrigin(0, 1);
+    this.bottomScrubSegment = this.add
+      .text(0, 0, "", {
+        ...bottomCmdStyle,
+        color: toTextColor(HudColors.NO_STEPS_COLOR),
       })
-      .setOrigin(0, 1)
-      .setDepth(10)
-      .setScrollFactor(0);
+      .setOrigin(0, 1);
+    this.bottomCommandsSegment = this.add
+      .text(0, 0, "", bottomCmdStyle)
+      .setOrigin(0, 1);
 
-    const bottomY = GAME_HEIGHT - 6;
-    const bottomStyle = { fontFamily: FONT_DISPLAY, fontSize: "10px" };
-    this.bottomRedText = this.add
-      .text(0, bottomY, "", { ...bottomStyle, color: toTextColor(HudColors.NO_STEPS_COLOR) })
-      .setOrigin(1, 1)
-      .setDepth(21)
-      .setScrollFactor(0);
-    this.bottomGrayText = this.add
-      .text(0, bottomY, "", { ...bottomStyle, color: toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR) })
-      .setOrigin(0, 1)
+    this.bottomBarContainer = this.add
+      .container(this.scale.width / 2, GAME_HEIGHT - 6, [
+        this.bottomPauseResumeSegment,
+        this.bottomScrubSegment,
+        this.bottomCommandsSegment,
+      ])
       .setDepth(21)
       .setScrollFactor(0);
 
-    this.bindKeys();
+    const onRegistryMusicMuted = (_parent: unknown, key: string | number): void => {
+      if (key === "musicMuted") {
+        this.updateBottomText();
+      }
+    };
+    this.registry.events.on("setdata", onRegistryMusicMuted);
+    this.registry.events.on("changedata", onRegistryMusicMuted);
+
+    this.bindKeys(onRegistryMusicMuted);
+
+    const refreshReplayBottomBar = (): void => {
+      this.updateBottomText();
+    };
+    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, refreshReplayBottomBar);
+    this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, refreshReplayBottomBar);
+    this.scale.on(Phaser.Scale.Events.RESIZE, refreshReplayBottomBar);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, refreshReplayBottomBar);
+      this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, refreshReplayBottomBar);
+      this.scale.off(Phaser.Scale.Events.RESIZE, refreshReplayBottomBar);
+    });
+
     this.renderDisplayState();
   }
 
@@ -226,7 +252,6 @@ export class ReplayScene extends Phaser.Scene {
   private renderState(state: GameState): void {
     this.tileRenderer.draw(state);
     this.refreshHud(state);
-    this.refreshDebugHud(state);
     this.updateBottomText();
   }
 
@@ -292,7 +317,7 @@ export class ReplayScene extends Phaser.Scene {
 
   // ── Key bindings ─────────────────────────────────────────────
 
-  private bindKeys(): void {
+  private bindKeys(onRegistryMusicMuted: (_parent: unknown, key: string | number) => void): void {
     const keyA = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     const keyD = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
@@ -349,35 +374,53 @@ export class ReplayScene extends Phaser.Scene {
     window.addEventListener("keydown", onKeyDown, true);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown, true);
+      this.registry.events.off("setdata", onRegistryMusicMuted);
+      this.registry.events.off("changedata", onRegistryMusicMuted);
     });
   }
 
   // ── Bottom text ──────────────────────────────────────────────
 
   private updateBottomText(): void {
-    const centerX = this.scale.width / 2;
+    const width = this.scale.width;
+    const fs = this.scale.isFullscreen ? "Exit Full Screen (F)" : "Full Screen (F)";
+    const fsColon = this.scale.isFullscreen ? "Exit Full Screen (:F)" : "Full Screen (:F)";
+    const musicMuted =
+      (this.registry.get("musicMuted") as boolean | undefined) ?? false;
+    const muteWord = musicMuted ? "Unmute" : "Mute";
     const gap = "   ";
 
     if (this.playing) {
-      const red = "";
-      const gray = `pause (SPACE)${gap}mute (M)${gap}fullscreen (F)${gap}exit (E)${gap}quit (Q)`;
-      this.bottomRedText.setText(red);
-      this.bottomGrayText.setText(gray);
+      this.bottomScrubSegment.setText("");
+      this.bottomPauseResumeSegment.setText("Pause (:SPACE)");
+      this.bottomPauseResumeSegment.setColor(
+        toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR)
+      );
+      this.bottomCommandsSegment.setText(
+        `   ${muteWord} (:M)   ${fsColon}   Exit (:E)   Quit (:Q)`
+      );
     } else {
       const atStart = this.actionIndex <= 0;
       const atEnd = this.actionIndex >= this.actionGroups.length - 1;
-      const prevPart = atStart ? "no previous actions" : "previous action (A)";
-      const nextPart = atEnd ? "no further actions" : "next action (D)";
-      const red = `${prevPart}${gap}${nextPart}${gap}resume (SPACE)${gap}`;
-      const gray = `exit (E)${gap}quit (Q)`;
-      this.bottomRedText.setText(red);
-      this.bottomGrayText.setText(gray);
+      const prevPart = atStart ? "No Previous Actions" : "Previous Action (A)";
+      const nextPart = atEnd ? "No Further Actions" : "Next Action (D)";
+      this.bottomPauseResumeSegment.setText("Resume (SPACE)");
+      this.bottomPauseResumeSegment.setColor(toTextColor(0xff0000));
+      this.bottomScrubSegment.setText(`   ${prevPart}${gap}${nextPart}`);
+      this.bottomCommandsSegment.setText(
+        `   ${muteWord} (M)   ${fs}   Exit (E)   Quit (Q)`
+      );
     }
 
-    const totalWidth = this.bottomRedText.width + this.bottomGrayText.width;
-    const startX = centerX - totalWidth / 2;
-    this.bottomRedText.setX(startX + this.bottomRedText.width);
-    this.bottomGrayText.setX(startX + this.bottomRedText.width);
+    const w1 = this.bottomPauseResumeSegment.width;
+    const w2 = this.bottomScrubSegment.width;
+    const w3 = this.bottomCommandsSegment.width;
+    const totalW = w1 + w2 + w3;
+    const lineY = 0;
+    this.bottomPauseResumeSegment.setPosition(-totalW / 2, lineY);
+    this.bottomScrubSegment.setPosition(-totalW / 2 + w1, lineY);
+    this.bottomCommandsSegment.setPosition(-totalW / 2 + w1 + w2, lineY);
+    this.bottomBarContainer.setPosition(width / 2, GAME_HEIGHT - 6);
   }
 
   // ── HUD ──────────────────────────────────────────────────────
@@ -646,24 +689,5 @@ export class ReplayScene extends Phaser.Scene {
     p1x += this.hudP1HasBall.text.width + 2 * pad + gap;
     drawStatusCell(this.hudP1Steps, p1x, this.hudStatBoxY,
       p1NoStepsLeft ? HudColors.NO_STEPS_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR);
-  }
-
-  private refreshDebugHud(state: GameState): void {
-    const p1 = state.players[1].position;
-    const holder = state.players[1].hasBall
-      ? "P1"
-      : state.players[2].hasBall
-        ? "P2"
-        : "none";
-    const ballFlying = state.ball.inFlight ? "yes" : "no";
-
-    this.debugHudText.setText(
-      `Replay ${this.actionIndex + 1}/${this.actionGroups.length} | Seed ${state.seed} | Tick ${state.tick}\n` +
-        `P1: (${p1.x}, ${p1.y})` +
-        (this.p2Active
-          ? ` | ${this.isCpu ? "CPU" : "P2"}: (${state.players[2].position.x}, ${state.players[2].position.y})`
-          : "") +
-        ` | Ball: ${holder} flying: ${ballFlying}`
-    );
   }
 }

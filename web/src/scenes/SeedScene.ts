@@ -38,12 +38,10 @@ export class SeedScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setVisible(false);
 
-    this.add
-      .text(fontPx * 0.5, height - fontPx * 0.5, "Back (B)", textStyle)
-      .setOrigin(0, 1);
+    this.add.text(width * 0.12, height * 0.92, "Back (B)", textStyle);
 
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key.toUpperCase() === "B" && this.digits.length === 0) {
+      if (event.key.toUpperCase() === "B") {
         this.scene.start("titleMenu");
         return;
       }

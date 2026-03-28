@@ -28,9 +28,9 @@ npm run dev
 ## Controls
 
 - Player 1: `W A S D`
-- Player 2: `I J K L` or arrow keys
+- Player 2: `I J K L`
 - Player 1 action: `E`
-- Player 2 action: `O` or `.`
+- Player 2 action: `O`
 - Player 1 fly toggle: `Q` (consumed on next move)
 - Player 2 fly toggle: `U` (consumed on next move)
 

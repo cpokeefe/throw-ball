@@ -7,8 +7,6 @@ import {
   BAR_CORNER_RADIUS,
   BAR_DOT_RADIUS,
   BAR_HEIGHT,
-  DEBUG_HUD_FONT_SIZE_PX,
-  DEBUG_HUD_TEXT_MARGIN,
   FIRST_TO_FONT_PX,
   FONT_DISPLAY,
   GAME_HEIGHT,
@@ -23,9 +21,12 @@ import {
   STATUS_BOX_GAP,
   STATUS_BOX_TEXT_MARGIN,
   TOP_MARGIN,
+  COMMANDS_TEXT_FONT_PX,
+  PAUSE_CONTROLS_HINT_FONT_PX,
+  BOTTOM_MARGIN,
 } from "../config/display";
 import { DEFAULT_GAME_MODE, isPlayer2Active } from "../config/gameModes";
-import { cpuTickForLevel, GAME_RULES, SIM_TICK_MS } from "../config/rules";
+import { cpuTickForLevel, DEFAULT_SETTINGS, SIM_TICK_MS } from "../config/rules";
 import { createInitialState } from "../core/init";
 import { IS_TEST_MODE } from "../config/env";
 import { ReplayLog, createReplayLog, pushState } from "../core/replayLog";
@@ -58,8 +59,8 @@ export class GameScene extends Phaser.Scene {
   private hudP2BarWidth = 0;
   private hudBarHeight = 0;
   private hudStatBoxY = 0;
-  private debugHudText!: Phaser.GameObjects.Text;
-  private hudVisible = true;
+  private hudP1StatusCenterX = 0;
+  private hudP2StatusCenterX = 0;
   private p2Active = true;
   private isPractice = false;
   private isCpu = false;
@@ -67,17 +68,29 @@ export class GameScene extends Phaser.Scene {
   private ballAccumulatorMs = 0;
   private cpuAccumulatorMs = 0;
   private cpuTickMs = 250;
-  private targetScore: number = GAME_RULES.scoreToWin;
+  private targetScore: number = DEFAULT_SETTINGS.targetScore;
   private replayLog!: ReplayLog;
   private isGameOver = false;
   private gamePhase: "countdown" | "playing" | "paused" = "playing";
   private overlayGraphics!: Phaser.GameObjects.Graphics;
   private countdownText!: Phaser.GameObjects.Text;
-  private pauseContainer!: Phaser.GameObjects.Container;
-  private bottomControlsText!: Phaser.GameObjects.Text;
+  private bottomBarContainer!: Phaser.GameObjects.Container;
+  private bottomPauseResumeSegment!: Phaser.GameObjects.Text;
+  private bottomCommandsSegment!: Phaser.GameObjects.Text;
+  private pauseHintP1Text!: Phaser.GameObjects.Text;
+  private pauseHintP2Text!: Phaser.GameObjects.Text;
   private goalScoredSound: HTMLAudioElement | null = null;
   private countdownTickSound: HTMLAudioElement | null = null;
   private countdownGoSound: HTMLAudioElement | null = null;
+
+  private readonly onRegistryMusicMuted = (
+    _parent: unknown,
+    key: string | number
+  ): void => {
+    if (key === "musicMuted") {
+      this.refreshBottomCommandBar();
+    }
+  };
 
   constructor() {
     super("game");
@@ -89,16 +102,13 @@ export class GameScene extends Phaser.Scene {
     if (IS_TEST_MODE && gameControls !== null) {
       gameControls.classList.remove("hidden");
     }
-    const storedHudVisible = this.registry.get("hudVisible");
-    if (typeof storedHudVisible === "boolean") {
-      this.hudVisible = storedHudVisible;
-    }
 
     const saved = data?.loadState
       ? (this.registry.get("savedGameState") as GameState | undefined)
       : undefined;
     this.targetScore =
-      (this.registry.get("targetScore") as number | undefined) ?? GAME_RULES.scoreToWin;
+      (this.registry.get("targetScore") as number | undefined) ??
+      DEFAULT_SETTINGS.targetScore;
     this.cpuTickMs = cpuTickForLevel(
       this.registry.get("cpuLevel") as string | undefined
     );
@@ -111,7 +121,8 @@ export class GameScene extends Phaser.Scene {
         : createReplayLog(this.state, this.targetScore);
     } else {
       const useRandomSeed =
-        (this.registry.get("useRandomSeed") as boolean | undefined) ?? false;
+        (this.registry.get("useRandomSeed") as boolean | undefined) ??
+        DEFAULT_SETTINGS.useRandomSeed;
       const customSeed =
         this.registry.get("customSeed") as number | undefined;
       const seed = useRandomSeed
@@ -142,25 +153,32 @@ export class GameScene extends Phaser.Scene {
     this.tileRenderer = new PhaserRenderer(this, this.state.map.height, HORIZONTAL_OFFSET, TOP_OFFSET, this.isCpu);
     this.createHud();
 
-    this.debugHudText = this.add
-      .text(
-        DEBUG_HUD_TEXT_MARGIN,
-        GAME_HEIGHT - DEBUG_HUD_TEXT_MARGIN,
-        "",
-        {
-          fontFamily: FONT_DISPLAY,
-          fontSize: `${DEBUG_HUD_FONT_SIZE_PX}px`,
-          color: toTextColor(HudColors.SCORE_TEXT_COLOR),
-        }
-      )
-      .setOrigin(0, 1)
-      .setDepth(10)
-      .setScrollFactor(0);
-    this.debugHudText.setVisible(this.hudVisible);
+    const pauseHintStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: FONT_DISPLAY,
+      fontSize: `${PAUSE_CONTROLS_HINT_FONT_PX}px`,
+      color: toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR),
+      align: "center",
+      wordWrap: { width: Math.min(420, this.scale.width * 0.42) },
+    };
+    this.pauseHintP1Text = this.add
+      .text(0, 0, "", pauseHintStyle)
+      .setOrigin(0.5, 0)
+      .setDepth(102)
+      .setScrollFactor(0)
+      .setVisible(false);
+    this.pauseHintP2Text = this.add
+      .text(0, 0, "", pauseHintStyle)
+      .setOrigin(0.5, 0)
+      .setDepth(102)
+      .setScrollFactor(0)
+      .setVisible(false);
 
-    this.registry.events.on("changedata-hudVisible", this.onHudVisibilityChanged, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.registry.events.off("changedata-hudVisible", this.onHudVisibilityChanged, this);
+      this.registry.events.off("setdata", this.onRegistryMusicMuted);
+      this.registry.events.off("changedata", this.onRegistryMusicMuted);
+      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, this.refreshBottomCommandBar, this);
+      this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, this.refreshBottomCommandBar, this);
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.refreshBottomCommandBar, this);
       if (!this.isGameOver) {
         this.registry.set("savedGameState", this.state);
       }
@@ -176,8 +194,6 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100)
       .setScrollFactor(0)
       .setVisible(false);
-    this.overlayGraphics.fillStyle(0x000000, 0.65);
-    this.overlayGraphics.fillRect(0, 0, this.scale.width, this.scale.height);
 
     this.countdownText = this.add
       .text(this.scale.width / 2, this.scale.height / 2, "", {
@@ -190,52 +206,33 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setVisible(false);
 
-    this.pauseContainer = this.add
-      .container(0, 0)
-      .setDepth(101)
-      .setScrollFactor(0)
-      .setVisible(false);
-    const pauseOptionsText = this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2 - 30,
-        "resume (SPACE)   mute (M)   fullscreen (F)   exit (E)   quit (Q)",
-        { fontFamily: FONT_DISPLAY, fontSize: "16px", color: "#ffffff" }
-      )
-      .setOrigin(0.5);
-    let controlsLabel: string;
-    if (this.isCpu) {
-      controlsLabel = "P1: WASD move, Q fly, E action";
-    } else if (this.p2Active) {
-      controlsLabel =
-        "P1: WASD move, Q fly, E action\nP2: IJKL/Arrows move, U fly, O/. action";
-    } else {
-      controlsLabel = "P1: WASD move, Q fly, E action";
-    }
-    const pauseControlsText = this.add
-      .text(this.scale.width / 2, this.scale.height / 2 + 20, controlsLabel, {
-        fontFamily: FONT_DISPLAY,
-        fontSize: "14px",
-        color: "#ffffff",
-        align: "center",
-      })
-      .setOrigin(0.5, 0);
-    this.pauseContainer.add([pauseOptionsText, pauseControlsText]);
+    const bottomCmdStyle = {
+      fontFamily: FONT_DISPLAY,
+      fontSize: `${COMMANDS_TEXT_FONT_PX}px`,
+      color: toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR),
+    } as const;
 
-    this.bottomControlsText = this.add
-      .text(
-        this.scale.width / 2,
-        GAME_HEIGHT - 6,
-        "pause (:SPACE)   mute (:M)   fullscreen (:F)   exit (:E)   quit (:Q)",
-        {
-          fontFamily: FONT_DISPLAY,
-          fontSize: "10px",
-          color: toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR),
-        }
-      )
-      .setOrigin(0.5, 1)
+    this.bottomPauseResumeSegment = this.add
+      .text(0, 0, "", bottomCmdStyle)
+      .setOrigin(0, 1);
+    this.bottomCommandsSegment = this.add
+      .text(0, 0, "", bottomCmdStyle)
+      .setOrigin(0, 1);
+
+    this.bottomBarContainer = this.add
+      .container(this.scale.width / 2, GAME_HEIGHT - 6, [
+        this.bottomPauseResumeSegment,
+        this.bottomCommandsSegment,
+      ])
       .setDepth(21)
       .setScrollFactor(0);
+
+    this.registry.events.on("setdata", this.onRegistryMusicMuted);
+    this.registry.events.on("changedata", this.onRegistryMusicMuted);
+    this.refreshBottomCommandBar();
+    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, this.refreshBottomCommandBar, this);
+    this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, this.refreshBottomCommandBar, this);
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.refreshBottomCommandBar, this);
 
     if (!IS_TEST_MODE) {
       const base = import.meta.env.BASE_URL;
@@ -245,7 +242,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.tileRenderer.draw(this.state);
-    this.refreshAllHud();
+    this.refreshHud();
 
     if (!this.isPractice && !IS_TEST_MODE && !saved) {
       this.startCountdown();
@@ -319,7 +316,7 @@ export class GameScene extends Phaser.Scene {
       const scorer: 1 | 2 = next.score.p1 > this.state.score.p1 ? 1 : 2;
       this.state = next;
       this.tileRenderer.draw(this.state);
-      this.refreshAllHud();
+      this.refreshHud();
       this.startCountdown(scorer);
       return;
     }
@@ -327,15 +324,10 @@ export class GameScene extends Phaser.Scene {
     if (next !== this.state) {
       this.state = next;
       this.tileRenderer.draw(this.state, _time);
-      this.refreshAllHud();
+      this.refreshHud();
     } else if (hasArmedFlyPlayer) {
       this.tileRenderer.draw(this.state, _time);
     }
-  }
-
-  private refreshAllHud(): void {
-    this.refreshHud();
-    this.refreshDebugHud();
   }
 
   private createHud(): void {
@@ -522,6 +514,7 @@ export class GameScene extends Phaser.Scene {
       p1ScoreLeftX = PLAYER_SCORE_X - this.hudP1Score.width;
       this.hudP1PlayerTitle.setX(p1ScoreLeftX / 2);
     }
+    this.hudP1StatusCenterX = p1ScoreLeftX / 2;
 
     if (this.p2Active) {
       this.hudP2Score.setText(String(this.state.score.p2));
@@ -554,6 +547,7 @@ export class GameScene extends Phaser.Scene {
         this.hudP2Steps.text.width +
         2 * pad;
       const p2ScoreRightX2 = hudWidth - PLAYER_SCORE_X + this.hudP2Score.width;
+      this.hudP2StatusCenterX = (p2ScoreRightX2 + hudWidth) / 2;
       let p2x = (p2ScoreRightX2 + hudWidth - p2W) / 2;
       drawStatusCell(
         this.hudP2FlyArmed, p2x, this.hudStatBoxY,
@@ -609,17 +603,8 @@ export class GameScene extends Phaser.Scene {
       this.hudP1Steps, p1x, this.hudStatBoxY,
       p1NoStepsLeft ? HudColors.NO_STEPS_COLOR : HudColors.PLAYER_BASE_BORDER_COLOR
     );
-  }
 
-  private onHudVisibilityChanged(_parent: Phaser.Data.DataManager, value: unknown): void {
-    if (typeof value !== "boolean") {
-      return;
-    }
-    this.hudVisible = value;
-    this.debugHudText.setVisible(value);
-    if (value) {
-      this.refreshAllHud();
-    }
+    this.layoutPauseHintTexts();
   }
 
   private getWinningPlayer(state: GameState): 1 | 2 | null {
@@ -637,6 +622,9 @@ export class GameScene extends Phaser.Scene {
 
   private startCountdown(scorer?: 1 | 2): void {
     this.gamePhase = "countdown";
+    this.overlayGraphics.clear();
+    this.overlayGraphics.fillStyle(0x000000, 0.65);
+    this.overlayGraphics.fillRect(0, 0, this.scale.width, this.scale.height);
     this.overlayGraphics.setVisible(true);
 
     const steps: Array<{ text: string; sound: HTMLAudioElement | null }> = [
@@ -692,51 +680,97 @@ export class GameScene extends Phaser.Scene {
     if (this.gamePhase === "paused") {
       this.gamePhase = "playing";
       this.overlayGraphics.setVisible(false);
-      this.pauseContainer.setVisible(false);
+      this.layoutBottomCommandBar();
+      this.layoutPauseHintTexts();
       return;
     }
     this.gamePhase = "paused";
+    this.layoutBottomCommandBar();
+    this.layoutPauseHintTexts();
+    this.redrawPauseOverlay();
     this.overlayGraphics.setVisible(true);
-    this.pauseContainer.setVisible(true);
+  }
+
+  private layoutPauseHintTexts(): void {
+    const paused = this.gamePhase === "paused";
+    const wrapW = Math.min(420, this.scale.width * 0.42);
+    this.pauseHintP1Text.setStyle({ wordWrap: { width: wrapW } });
+    this.pauseHintP2Text.setStyle({ wordWrap: { width: wrapW } });
+
+    if (!paused) {
+      this.pauseHintP1Text.setVisible(false);
+      this.pauseHintP2Text.setVisible(false);
+      return;
+    }
+
+    const hintY = this.hudStatBoxY + this.hudP1FlyArmed.text.height + BOTTOM_MARGIN
+
+    this.pauseHintP1Text.setText("Move: WASD  Fly: Q  Action: E");
+    this.pauseHintP1Text.setPosition(this.hudP1StatusCenterX, hintY);
+    this.pauseHintP1Text.setVisible(true);
+
+    const showP2Human = this.p2Active && !this.isCpu;
+    if (showP2Human) {
+      this.pauseHintP2Text.setText("Move: IJKL  Fly: U  Action: O");
+      this.pauseHintP2Text.setPosition(this.hudP2StatusCenterX, hintY);
+      this.pauseHintP2Text.setVisible(true);
+    } else {
+      this.pauseHintP2Text.setVisible(false);
+    }
+  }
+
+  private layoutBottomCommandBar(): void {
+    const width = this.scale.width;
+    const fs = this.scale.isFullscreen ? "Exit Full Screen (F)" : "Full Screen (F)";
+    const fsColon = this.scale.isFullscreen ? "Exit Full Screen (:F)" : "Full Screen (:F)";
+    const paused = this.gamePhase === "paused";
+    const musicMuted =
+      (this.registry.get("musicMuted") as boolean | undefined) ?? false;
+    const muteWord = musicMuted ? "Unmute" : "Mute";
+    if (paused) {
+      this.bottomPauseResumeSegment.setText("Resume (SPACE)");
+      this.bottomPauseResumeSegment.setColor(toTextColor(0xff0000));
+      this.bottomCommandsSegment.setText(
+        `   ${muteWord} (M)   ${fs}   Exit (E)   Quit (Q)`
+      );
+    } else {
+      this.bottomPauseResumeSegment.setText("Pause (:SPACE)");
+      this.bottomPauseResumeSegment.setColor(toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR));
+      this.bottomCommandsSegment.setText(
+        `   ${muteWord} (:M)   ${fsColon}   Exit (:E)   Quit (:Q)`
+      );
+    }
+
+    const w1 = this.bottomPauseResumeSegment.width;
+    const w2 = this.bottomCommandsSegment.width;
+    const totalW = w1 + w2;
+    const lineY = 0;
+    this.bottomPauseResumeSegment.setPosition(-totalW / 2, lineY);
+    this.bottomCommandsSegment.setPosition(-totalW / 2 + w1, lineY);
+
+    this.bottomBarContainer.setPosition(width / 2, GAME_HEIGHT - 6);
+  }
+
+  private redrawPauseOverlay(): void {
+    this.overlayGraphics.clear();
+    this.overlayGraphics.fillStyle(0x000000, 0.65);
+    const topY = this.bottomBarContainer.getBounds().y;
+    this.overlayGraphics.fillRect(0, 0, this.scale.width, topY);
+  }
+
+  private refreshBottomCommandBar(): void {
+    if (this.gamePhase === "paused") {
+      this.refreshHud();
+    }
+    this.layoutBottomCommandBar();
+    if (this.gamePhase === "paused") {
+      this.redrawPauseOverlay();
+    }
   }
 
   private playSound(audio: HTMLAudioElement | null): void {
     if (audio === null) return;
     audio.currentTime = 0;
     void audio.play().catch(() => {});
-  }
-
-  private refreshDebugHud(): void {
-    if (!this.hudVisible) {
-      return;
-    }
-    const p1 = this.state.players[1].position;
-    const holder = this.state.players[1].hasBall ? "P1" : this.state.players[2].hasBall ? "P2" : "none";
-    const p1Flying = this.state.players[1].isFlying ? " yes" : " no";
-    const ballFlying = this.state.ball.inFlight ? "yes" : "no";
-
-    if (this.isCpu) {
-      const p2 = this.state.players[2].position;
-      const p2Flying = this.state.players[2].isFlying ? " yes" : " no";
-      this.debugHudText.setText(
-        `Seed ${this.state.seed} | Tick ${this.state.tick}\n` +
-          `P1 location: (${p1.x}, ${p1.y}) flying: ${p1Flying} | CPU location: (${p2.x}, ${p2.y}) flying:${p2Flying} | Ball: ${holder} flying: ${ballFlying}\n` +
-          `P1 WASD move, Q fly, E action | CPU tick: ${this.cpuTickMs}ms`
-      );
-    } else if (this.p2Active) {
-      const p2 = this.state.players[2].position;
-      const p2Flying = this.state.players[2].isFlying ? " yes" : " no";
-      this.debugHudText.setText(
-        `Seed ${this.state.seed} | Tick ${this.state.tick}\n` +
-          `P1 location: (${p1.x}, ${p1.y}) flying: ${p1Flying} | P2 location: (${p2.x}, ${p2.y}) flying:${p2Flying} | Ball: ${holder} flying: ${ballFlying}\n` +
-          `P1 WASD move, Q fly, E action | P2 IJKL/Arrows move, U fly, O or . action`
-      );
-    } else {
-      this.debugHudText.setText(
-        `Seed ${this.state.seed} | Tick ${this.state.tick}\n` +
-          `P1 location: (${p1.x}, ${p1.y}) flying: ${p1Flying} | Ball: ${holder} flying: ${ballFlying}\n` +
-          `P1 WASD move, Q fly, E action`
-      );
-    }
   }
 }

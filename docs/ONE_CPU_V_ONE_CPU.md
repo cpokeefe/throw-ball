@@ -246,7 +246,7 @@ Display "Team 1 wins!" or "Team 2 wins!" with appropriate team color. Could also
 
 ```
 P1: WASD move, Q fly, E action  (Team 1)
-P3: IJKL/Arrows move, U fly, O/. action  (Team 2)
+P3: IJKL move, U fly, O action  (Team 2)
 P2, P4: CPU (auto)
 ```
 

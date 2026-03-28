@@ -9,6 +9,7 @@ import {
   PLAYER_4_COLOR,
 } from "../config/colors";
 import { FONT_DISPLAY, TITLE_MENU_SCENE } from "../config/display";
+import { DEFAULT_SETTINGS } from "../config/rules";
 import { isComingSoon, DEFAULT_GAME_MODE } from "../config/gameModes";
 import { GameMode } from "../core/types";
 import { bindColonCommands } from "../input/colonCommands";
@@ -204,11 +205,11 @@ export class TitleMenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    this.add
+    const footerText = this.add
       .text(
         width / 2,
         height * 0.96,
-        "Mute (M)  Full Screen (F)  Quit (Q)",
+        "",
         {
           fontFamily: FONT_DISPLAY,
           fontSize: `${TITLE_MENU_SCENE.menuFontPx}px`,
@@ -216,6 +217,23 @@ export class TitleMenuScene extends Phaser.Scene {
         }
       )
       .setOrigin(0.5, 1);
+    const syncFooterBar = (): void => {
+      const fs = this.scale.isFullscreen ? "Exit Full Screen (F)" : "Full Screen (F)";
+      const musicMuted =
+        (this.registry.get("musicMuted") as boolean | undefined) ?? false;
+      const muteLabel = musicMuted ? "Unmute (M)" : "Mute (M)";
+      footerText.setText(`${muteLabel}  ${fs}  Quit (Q)`);
+    };
+    syncFooterBar();
+    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFooterBar);
+    this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFooterBar);
+    const onRegistryMusicMuted = (_parent: unknown, key: string | number): void => {
+      if (key === "musicMuted") {
+        syncFooterBar();
+      }
+    };
+    this.registry.events.on("setdata", onRegistryMusicMuted);
+    this.registry.events.on("changedata", onRegistryMusicMuted);
 
     const startGame = (): void => {
       if (isComingSoon(currentMode)) {
@@ -223,7 +241,8 @@ export class TitleMenuScene extends Phaser.Scene {
         return;
       }
       const useRandomSeed =
-        (this.registry.get("useRandomSeed") as boolean | undefined) ?? false;
+        (this.registry.get("useRandomSeed") as boolean | undefined) ??
+        DEFAULT_SETTINGS.useRandomSeed;
       if (useRandomSeed) {
         this.registry.set("savedGameState", null);
         this.scene.start("game");
@@ -276,6 +295,10 @@ export class TitleMenuScene extends Phaser.Scene {
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.registry.events.off("setdata", onRegistryMusicMuted);
+      this.registry.events.off("changedata", onRegistryMusicMuted);
+      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFooterBar);
+      this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFooterBar);
       this.input.keyboard?.off("keydown-N", startGame);
       this.input.keyboard?.off("keydown-L", loadGame);
       this.input.keyboard?.off("keydown-R", watchReplay);
