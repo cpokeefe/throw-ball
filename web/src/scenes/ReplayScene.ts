@@ -161,12 +161,8 @@ export class ReplayScene extends Phaser.Scene {
     const refreshReplayBottomBar = (): void => {
       this.updateBottomText();
     };
-    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, refreshReplayBottomBar);
-    this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, refreshReplayBottomBar);
     this.scale.on(Phaser.Scale.Events.RESIZE, refreshReplayBottomBar);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, refreshReplayBottomBar);
-      this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, refreshReplayBottomBar);
       this.scale.off(Phaser.Scale.Events.RESIZE, refreshReplayBottomBar);
     });
 
@@ -365,9 +361,6 @@ export class ReplayScene extends Phaser.Scene {
         case "m":
           getSiteControls()?.toggleMute();
           break;
-        case "f":
-          getSiteControls()?.toggleFullscreen();
-          break;
       }
     };
 
@@ -383,8 +376,6 @@ export class ReplayScene extends Phaser.Scene {
 
   private updateBottomText(): void {
     const width = this.scale.width;
-    const fs = this.scale.isFullscreen ? "Exit Full Screen (F)" : "Full Screen (F)";
-    const fsColon = this.scale.isFullscreen ? "Exit Full Screen (:F)" : "Full Screen (:F)";
     const musicMuted =
       (this.registry.get("musicMuted") as boolean | undefined) ?? false;
     const muteWord = musicMuted ? "Unmute" : "Mute";
@@ -397,7 +388,7 @@ export class ReplayScene extends Phaser.Scene {
         toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR)
       );
       this.bottomCommandsSegment.setText(
-        `   ${muteWord} (:M)   ${fsColon}   Exit (:E)   Quit (:Q)`
+        `   ${muteWord} (:M)   Exit (:E)   Quit (:Q)`
       );
     } else {
       const atStart = this.actionIndex <= 0;
@@ -408,7 +399,7 @@ export class ReplayScene extends Phaser.Scene {
       this.bottomPauseResumeSegment.setColor(toTextColor(0xff0000));
       this.bottomScrubSegment.setText(`   ${prevPart}${gap}${nextPart}`);
       this.bottomCommandsSegment.setText(
-        `   ${muteWord} (M)   ${fs}   Exit (E)   Quit (Q)`
+        `   ${muteWord} (M)   Exit (E)   Quit (Q)`
       );
     }
 

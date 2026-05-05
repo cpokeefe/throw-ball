@@ -9,7 +9,7 @@ export type ColonCommandHandlers = {
 };
 
 /**
- * Vim-style `:` then a letter: :f fullscreen, :m mute, :e title menu, :q leave game (HTML page).
+ * Vim-style `:` then a letter: :m mute, :e title menu, :q leave game (HTML page).
  * Uses capture phase so P1 `e` / `q` are suppressed before Phaser polls the same frame.
  * Cleans up on scene shutdown.
  */
@@ -24,9 +24,6 @@ export function bindColonCommands(
   const executeCommand = (k: string): void => {
     const site = getSiteControls();
     switch (k) {
-      case "f":
-        site?.toggleFullscreen();
-        break;
       case "m":
         site?.toggleMute();
         break;
@@ -66,7 +63,7 @@ export function bindColonCommands(
 
     if (isPaused?.()) {
       const k = event.key.toLowerCase();
-      if (k === " " || k === "f" || k === "m" || k === "e" || k === "q") {
+      if (k === " " || k === "m" || k === "e" || k === "q") {
         event.preventDefault();
         executeCommand(k);
       }

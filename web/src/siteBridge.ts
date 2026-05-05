@@ -1,5 +1,4 @@
 export type SiteControls = {
-  toggleFullscreen: () => void;
   toggleMute: () => void;
   quitToWebsite: () => void;
 };

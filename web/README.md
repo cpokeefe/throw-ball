@@ -36,7 +36,6 @@ npm run dev
 
 Vim-style commands (press `:` then the second key; on a US layout `:` is `Shift` + `;`):
 
-- `:f` — toggle fullscreen
 - `:m` — mute / unmute music
 - `:e` — exit to the in-game title screen
 - `:q` — quit back to the HTML page (ends the Phaser session)

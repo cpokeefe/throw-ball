@@ -218,15 +218,12 @@ export class TitleMenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5, 1);
     const syncFooterBar = (): void => {
-      const fs = this.scale.isFullscreen ? "Exit Full Screen (F)" : "Full Screen (F)";
       const musicMuted =
         (this.registry.get("musicMuted") as boolean | undefined) ?? false;
       const muteLabel = musicMuted ? "Unmute (M)" : "Mute (M)";
-      footerText.setText(`${muteLabel}  ${fs}  Quit (Q)`);
+      footerText.setText(`${muteLabel}  Quit (Q)`);
     };
     syncFooterBar();
-    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFooterBar);
-    this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFooterBar);
     const onRegistryMusicMuted = (_parent: unknown, key: string | number): void => {
       if (key === "musicMuted") {
         syncFooterBar();
@@ -272,7 +269,6 @@ export class TitleMenuScene extends Phaser.Scene {
     const site = getSiteControls();
     const toggleMute = (): void => { site?.toggleMute(); };
     const quitGame = (): void => { site?.quitToWebsite(); };
-    const toggleFullscreen = (): void => { site?.toggleFullscreen(); };
     const watchReplay = (): void => {
       if (hasReplay) {
         this.scene.start("replay");
@@ -287,7 +283,6 @@ export class TitleMenuScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown-G", openGuide);
     this.input.keyboard?.on("keydown-M", toggleMute);
     this.input.keyboard?.on("keydown-Q", quitGame);
-    this.input.keyboard?.on("keydown-F", toggleFullscreen);
     this.input.keyboard?.on("keydown-E", easterEgg);
 
     bindColonCommands(this, undefined, {
@@ -297,8 +292,6 @@ export class TitleMenuScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.registry.events.off("setdata", onRegistryMusicMuted);
       this.registry.events.off("changedata", onRegistryMusicMuted);
-      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, syncFooterBar);
-      this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, syncFooterBar);
       this.input.keyboard?.off("keydown-N", startGame);
       this.input.keyboard?.off("keydown-L", loadGame);
       this.input.keyboard?.off("keydown-R", watchReplay);
@@ -307,7 +300,6 @@ export class TitleMenuScene extends Phaser.Scene {
       this.input.keyboard?.off("keydown-G", openGuide);
       this.input.keyboard?.off("keydown-M", toggleMute);
       this.input.keyboard?.off("keydown-Q", quitGame);
-      this.input.keyboard?.off("keydown-F", toggleFullscreen);
       this.input.keyboard?.off("keydown-E", easterEgg);
     });
   }

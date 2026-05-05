@@ -34,7 +34,7 @@ The game lives entirely in `web/src/` and runs as a client-only Phaser 3 applica
 ```
 web/src/
 ├── main.ts                          # Phaser bootstrap, HTML shell wiring
-├── siteBridge.ts                    # Global site controls (fullscreen, mute, quit)
+├── siteBridge.ts                    # Global site controls (mute, quit)
 ├── config/
 │   ├── colors.ts                    # Hex palette, player/CPU colors
 │   ├── display.ts                   # Tile size, map dimensions, HUD layout

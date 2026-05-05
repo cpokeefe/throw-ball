@@ -176,8 +176,6 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.registry.events.off("setdata", this.onRegistryMusicMuted);
       this.registry.events.off("changedata", this.onRegistryMusicMuted);
-      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, this.refreshBottomCommandBar, this);
-      this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, this.refreshBottomCommandBar, this);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.refreshBottomCommandBar, this);
       if (!this.isGameOver) {
         this.registry.set("savedGameState", this.state);
@@ -230,8 +228,6 @@ export class GameScene extends Phaser.Scene {
     this.registry.events.on("setdata", this.onRegistryMusicMuted);
     this.registry.events.on("changedata", this.onRegistryMusicMuted);
     this.refreshBottomCommandBar();
-    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, this.refreshBottomCommandBar, this);
-    this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, this.refreshBottomCommandBar, this);
     this.scale.on(Phaser.Scale.Events.RESIZE, this.refreshBottomCommandBar, this);
 
     if (!IS_TEST_MODE) {
@@ -721,8 +717,6 @@ export class GameScene extends Phaser.Scene {
 
   private layoutBottomCommandBar(): void {
     const width = this.scale.width;
-    const fs = this.scale.isFullscreen ? "Exit Full Screen (F)" : "Full Screen (F)";
-    const fsColon = this.scale.isFullscreen ? "Exit Full Screen (:F)" : "Full Screen (:F)";
     const paused = this.gamePhase === "paused";
     const musicMuted =
       (this.registry.get("musicMuted") as boolean | undefined) ?? false;
@@ -731,13 +725,13 @@ export class GameScene extends Phaser.Scene {
       this.bottomPauseResumeSegment.setText("Resume (SPACE)");
       this.bottomPauseResumeSegment.setColor(toTextColor(0xff0000));
       this.bottomCommandsSegment.setText(
-        `   ${muteWord} (M)   ${fs}   Exit (E)   Quit (Q)`
+        `   ${muteWord} (M)   Exit (E)   Quit (Q)`
       );
     } else {
       this.bottomPauseResumeSegment.setText("Pause (:SPACE)");
       this.bottomPauseResumeSegment.setColor(toTextColor(HudColors.PLAYER_BASE_TEXT_COLOR));
       this.bottomCommandsSegment.setText(
-        `   ${muteWord} (:M)   ${fsColon}   Exit (:E)   Quit (:Q)`
+        `   ${muteWord} (:M)   Exit (:E)   Quit (:Q)`
       );
     }
 

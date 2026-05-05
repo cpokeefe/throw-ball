@@ -1,2 +1,4 @@
 node_modules
 dist
+.load.txt
+.replay.txt

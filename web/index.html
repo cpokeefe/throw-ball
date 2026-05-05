@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Throw Ball Web</title>
+    <title>Charlie O'Keefe</title>
     <style>
       @font-face {
         font-family: "VeraMono";
@@ -42,35 +42,241 @@
         margin: 0;
         background: #ffffff;
         color: #111111;
-        /* overflow-x: hidden;
-        overflow-y: hidden; */
-        overflow: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      html {
+        overflow-x: hidden;
+      }
+
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px 20px;
+        background: #ffffff;
+      }
+
+      .topbar .brand {
+        font-size: 1.3rem;
+        font-weight: bold;
+        white-space: nowrap;
+        line-height: 1;
+      }
+
+      .topbar .nav-link {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font-family: inherit;
+        font-size: 1.3rem;
+        line-height: 1;
+        color: #111111;
+        cursor: pointer;
+        letter-spacing: 0.02em;
+      }
+
+      .topbar .nav-link-stack {
+        position: relative;
+        display: inline-block;
+      }
+
+      .topbar .nav-link-sizer {
+        display: inline-block;
+        font-weight: bold;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .topbar .nav-link-label {
+        position: absolute;
+        left: 0;
+        top: 0;
+        white-space: nowrap;
+        font-weight: normal;
+        width: 100%;
+      }
+
+      .topbar .nav-link.active .nav-link-label {
+        font-weight: bold;
       }
 
       .page {
-        padding: 24px 0 0;
-        min-width: max-content;
+        padding: 42px 0 0;
       }
 
-      .header {
-        display: flex;
-        align-items: flex-start;
-        gap: 20px;
-        padding: 0 24px;
-        margin-bottom: 20px;
+      .app-page {
+        display: none;
+        padding: 16px 24px 32px;
       }
 
-      .name {
-        margin: 0;
-        font-size: 1.4rem;
-        line-height: 1.2;
-        white-space: nowrap;
+      .app-page.active {
+        display: block;
       }
 
       .bio {
-        max-width: 560px;
+        max-width: 640px;
         margin: 0;
+        line-height: 1.6;
+        font-size: 1rem;
+      }
+
+      .projects-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: auto auto;
+        column-gap: 24px;
+        row-gap: 0;
+        align-items: start;
+      }
+
+      .project-card {
+        display: grid;
+        grid-template-rows: subgrid;
+        grid-row: span 2;
+        min-width: 0;
+      }
+
+      .project-thumb {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1024 / 497;
+        background: #000;
+        overflow: hidden;
+      }
+
+      .project-thumb img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .project-thumb-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        /* align-items: center; */
+        padding: 130px 24px;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .project-thumb-overlay > * {
+        pointer-events: auto;
+      }
+
+      .project-info {
+        padding: 0 0 10px;
+      }
+
+      .project-info h2 {
+        margin: 0 0 6px 0;
+        font-size: 1rem;
+      }
+
+      .project-info p {
+        margin: 0 0 10px 0;
         line-height: 1.5;
+        color: #333;
+        font-size: 0.95rem;
+      }
+
+      .resume-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 32px;
+        align-items: start;
+        max-width: 1400px;
+      }
+
+      .resume-section {
+        min-width: 0;
+      }
+
+      .resume-section h2 {
+        margin: 0 0 10px 0;
+        font-size: 1.05rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-bottom: 1px solid #cccccc;
+        padding-bottom: 4px;
+      }
+
+      .resume-section h2:not(:first-child) {
+        margin-top: 22px;
+      }
+
+      .resume-entry {
+        margin-bottom: 14px;
+      }
+
+      .resume-entry:last-child {
+        margin-bottom: 0;
+      }
+
+      .resume-entry-header,
+      .resume-entry-subheader {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .resume-entry-header strong,
+      .resume-entry-subheader em {
+        min-width: 0;
+      }
+
+      .resume-entry-subheader {
+        font-style: italic;
+        color: #444;
+      }
+
+      .resume-entry-meta {
+        white-space: nowrap;
+        color: #555;
+      }
+
+      .resume-entry p {
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        color: #333;
+      }
+
+      .resume-entry ul {
+        margin: 6px 0 0 0;
+        padding-left: 16px;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        color: #333;
+      }
+
+      .resume-entry ul li {
+        margin-bottom: 2px;
+      }
+
+      .resume-skill-row {
+        display: grid;
+        grid-template-columns: 90px 1fr;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+
+      .resume-skill-row strong {
+        font-weight: bold;
       }
 
       .controls {
@@ -111,8 +317,21 @@
 
       #app {
         display: block;
-        width: fit-content;
-        margin: 0 auto;
+        width: 100%;
+        max-width: 640px;
+        margin: 0;
+      }
+
+      #app.app--pending {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 1px;
+        height: 1px;
+        max-width: none;
+        overflow: hidden;
+        visibility: hidden;
+        pointer-events: none;
       }
 
       #app:fullscreen,
@@ -120,74 +339,21 @@
         position: relative;
         width: 100vw;
         height: 100vh;
+        max-width: none;
         margin: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         background: #000000;
+        visibility: visible;
+        pointer-events: auto;
+        overflow: visible;
       }
 
       #app:fullscreen > canvas,
       #app:-webkit-full-screen > canvas {
         margin: auto;
         display: block;
-      }
-
-      /* ---- Fullscreen margin ads ---- */
-
-      #ad-margins {
-        display: none;
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 5;
-        margin: 0 !important;
-      }
-
-      #ad-margins.visible {
-        display: block;
-      }
-
-      .ad-region {
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        pointer-events: none;
-        transition: opacity var(--ad-fade-ms, 500ms) ease;
-        opacity: 1;
-      }
-
-      .ad-card {
-        display: inline-flex;
-        align-items: center;
-        gap: 12px;
-        border: 1px solid;
-        border-radius: 8px;
-        pointer-events: auto;
-        user-select: none;
-        font-family: 'VeraMono', monospace;
-      }
-
-      .ad-icon {
-        line-height: 1;
-        flex-shrink: 0;
-      }
-
-      .ad-text {
-        display: inline-flex;
-        flex-direction: column;
-        gap: 1px;
-      }
-
-      .ad-title {
-        font-weight: bold;
-        white-space: nowrap;
-      }
-
-      .ad-tagline {
-        white-space: nowrap;
       }
 
       .title-screen {
@@ -204,15 +370,28 @@
         margin: 0 auto;
       }
 
+      .project-thumb.title-screen {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin: 0;
+      }
+
+      #loading-screen {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1024 / 497;
+        margin: 0;
+      }
+
       .play-button {
-        width: 82px;
-        height: 82px;
+        width: 60px;
+        height: 60px;
         border-radius: 50%;
         border: 3.5px solid #ffffff;
         background: #111821;
         color: #ffffff;
-        font-size: 2.4rem;
-        line-height: 1;
+        font-size: 2.2rem;
         display: grid;
         place-items: center;
       }
@@ -234,36 +413,202 @@
       }
 
       @media (max-width: 860px) {
-        .header {
-          flex-direction: column;
-          gap: 10px;
+        .projects-grid,
+        .resume-grid {
+          grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
+    <nav class="topbar">
+      <span class="brand">CHARLIE</span>
+      <span class="brand">O'KEEFE</span>
+      <button class="nav-link" data-page="goals" type="button">
+        <span class="nav-link-stack">
+          <span class="nav-link-sizer" aria-hidden="true">GOALS</span>
+          <span class="nav-link-label">GOALS</span>
+        </span>
+      </button>
+      <button class="nav-link active" data-page="projects" type="button">
+        <span class="nav-link-stack">
+          <span class="nav-link-sizer" aria-hidden="true">PROJECTS</span>
+          <span class="nav-link-label">PROJECTS</span>
+        </span>
+      </button>
+      <button class="nav-link" data-page="resume" type="button">
+        <span class="nav-link-stack">
+          <span class="nav-link-sizer" aria-hidden="true">RESUME</span>
+          <span class="nav-link-label">RESUME</span>
+        </span>
+      </button>
+    </nav>
     <main class="page">
-      <section class="header">
-        <h1 class="name">CHARLIE O'KEEFE</h1>
+      <section id="page-goals" class="app-page" data-page="goals">
         <p class="bio">
           I want to learn about everything.<br />
           I will never stop working hard to learn.<br />
           My ultimate goal is to help other people.
         </p>
       </section>
-      <section id="title-screen" class="title-screen">
-        <button id="start-game" class="control-button play-button" type="button" aria-label="Start game">
-          &#9654;
-        </button>
+      <section id="page-projects" class="app-page active" data-page="projects">
+        <div class="projects-grid">
+          <article class="project-card">
+            <div class="project-info">
+              <h2>Throw Ball</h2>
+              <p>
+                Retro-style game with multiplayer, CPU, and instant replay.
+              </p>
+            </div>
+            <section id="title-screen" class="project-thumb title-screen">
+              <img src="/throw_ball_cover.png" alt="Throw Ball cover" />
+              <div class="project-thumb-overlay">
+                <button id="start-game" class="control-button play-button" type="button" aria-label="Start game">
+                  &#9654;
+                </button>
+              </div>
+            </section>
+            <section id="loading-screen" class="title-screen hidden">
+              <p class="loading-text">Loading...</p>
+            </section>
+            <div id="app"></div>
+          </article>
+          <article class="project-card">
+            <div class="project-info">
+              <h2>Spotify Reorganization Software</h2>
+              <p>Displays user music in custom order for systematic listening.</p>
+            </div>
+            <div class="project-thumb">
+              <img src="/reorganization_cover.png" alt="Project Two cover" />
+            </div>
+          </article>
+          <article class="project-card">
+            <div class="project-info">
+              <h2>Diatonic Harmony Solving Software</h2>
+              <p>
+                Exhuastively generates chord progressions given a bassline.
+              </p>
+            </div>
+            <div class="project-thumb">
+              <img src="/harmony_cover.png" alt="Roman numeral harmonization algorithm diagram" />
+            </div>
+          </article>
+        </div>
       </section>
-      <section id="loading-screen" class="title-screen hidden">
-        <p class="loading-text">Loading...</p>
+      <section id="page-resume" class="app-page" data-page="resume">
+        <div class="resume-grid">
+          <div class="resume-section">
+            <h2>Education</h2>
+            <div class="resume-entry">
+              <div class="resume-entry-header">
+                <strong>University of California, Berkeley</strong>
+                <span class="resume-entry-meta">Fall 2022 - Fall 2025</span>
+              </div>
+              <p>GPA: 3.91 / 4.00 &middot; B.S. in Electrical Engineering &amp; Computer Science &middot; Minor in Music</p>
+              <p>
+                <strong>Relevant Coursework:</strong>
+                Natural Language Processing, Machine Learning, Probability &amp; Random Processes,
+                Optimization Models, Efficient Algorithms &amp; Intractable Problems, iOS Development,
+                Operating Systems, Computer Architecture, Data Structures, Object-Oriented Programming,
+                Test-Driven Development, Structure &amp; Interpretation of Computer Programs,
+                Signals &amp; Systems, Information Systems, Discrete Math, Differential Equations,
+                Linear Algebra, Multivariable Calculus, Physics: Mechanics, Electricity, &amp; Magnetism.
+              </p>
+            </div>
+            <h2>Technical Skills</h2>
+            <div class="resume-skill-row">
+              <strong>Languages</strong>
+              <span>C, Java, Python, TypeScript, Swift, SQL</span>
+            </div>
+            <div class="resume-skill-row">
+              <strong>Libraries</strong>
+              <span>NumPy, Pandas, PyTorch, Playwright</span>
+            </div>
+            <div class="resume-skill-row">
+              <strong>Systems</strong>
+              <span>x86, RISC-V, Linux, GDB, Docker</span>
+            </div>
+            <div class="resume-skill-row">
+              <strong>Platforms</strong>
+              <span>Git, Node.js, Jupyter, Microsoft 365</span>
+            </div>
+          </div>
+          <div class="resume-section">
+            <h2>Experience</h2>
+            <div class="resume-entry">
+              <div class="resume-entry-header">
+                <strong>Mainstay Maritime</strong>
+                <span class="resume-entry-meta">Summer 2025</span>
+              </div>
+              <div class="resume-entry-subheader">
+                <em>Software Automation Intern</em>
+                <span class="resume-entry-meta">Buffalo, NY</span>
+              </div>
+              <ul>
+                <li>Prioritized high-ROI work by surveying multiple project areas and unique approaches to deliver immediate impact.</li>
+                <li>Built internal npm package that auto-completes customs forms, emphasizing usability, stability, versatility, and speed.</li>
+                <li>Integrated tool with SharePoint via Azure AD and Microsoft Graph, enabling secure, automated access to company data.</li>
+                <li>Led adoption of workflow by writing clear documentation, organizing onboarding sessions, and mentoring teammates.</li>
+                <li>Reduced manual customs processing by 95%, saving over 100 hours annually and eliminating data entry errors.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="resume-section">
+            <h2>Projects</h2>
+            <div class="resume-entry">
+              <div class="resume-entry-header">
+                <strong>Spotify Data Management Platform</strong>
+                <span class="resume-entry-meta">Summer 2024</span>
+              </div>
+              <div class="resume-entry-subheader">
+                <em>Independent Developer</em>
+                <span class="resume-entry-meta">Berkeley, CA</span>
+              </div>
+              <ul>
+                <li>Constructed secure software enabling users to remotely customize the order of albums in their Spotify user library.</li>
+                <li>Devised rigorous tests to determine optimal addition rate, achieving 99% accuracy at 0.93 seconds between additions.</li>
+                <li>Identified undocumented Spotify API limits (approximately 100 GET requests per 30s), improving system reliability.</li>
+                <li>Engineered automated backup and recovery procedures to ensure fault tolerance and data integrity.</li>
+              </ul>
+            </div>
+            <div class="resume-entry">
+              <div class="resume-entry-header">
+                <strong>Diatonic Harmony Solving Algorithm</strong>
+                <span class="resume-entry-meta">Spring 2024</span>
+              </div>
+              <div class="resume-entry-subheader">
+                <em>Independent Developer</em>
+                <span class="resume-entry-meta">Berkeley, CA</span>
+              </div>
+              <ul>
+                <li>Developed software that outputs all possibilities of harmonizing a given interval bassline in the classical diatonic style.</li>
+                <li>Modeled complex behavior of diatonic 17th century harmony using rules synthesized from literature and real music.</li>
+                <li>Implemented Markov Chain to represent chord functionality relationships and generate plausible chord progressions.</li>
+                <li>Employed Dynamic Programming to reduce algorithm runtime complexity from exponential to polynomial.</li>
+              </ul>
+            </div>
+            <div class="resume-entry">
+              <div class="resume-entry-header">
+                <strong>Wastewater Solid Processing Research</strong>
+                <span class="resume-entry-meta">Spring 2022</span>
+              </div>
+              <div class="resume-entry-subheader">
+                <em>Student Researcher</em>
+                <span class="resume-entry-meta">Oak Park, IL</span>
+              </div>
+              <ul>
+                <li>Formulated novel dye-based method to improve eco-friendly disposal of solids removed during wastewater treatment.</li>
+                <li>Designed image-processing algorithm that used pixel RGB values to quantify dye concentrations in wastewater samples.</li>
+                <li>Prototyped pipeline to automate dye chemical detection and streamline data processing for industry deployment.</li>
+                <li>Authored formal research paper, presenting findings at local, state, and national competitions.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </section>
-      <div id="app"></div>
       <section id="game-controls" class="controls hidden">
         <button id="hud-toggle" class="control-button" type="button">Controls</button>
         <button id="music-toggle" class="control-button" type="button">Mute Music</button>
-        <button id="fullscreen-toggle" class="control-button" type="button">Fullscreen</button>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
